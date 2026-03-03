@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Selu383.SP26.Mobile",
-    "slug": "Selu383.SP26.Mobile",
+    "name": "Selu383-SP26-P03-Mobile-g08",
+    "slug": "Selu383-SP26-P03-Mobile-g08",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -12,6 +12,7 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "com.selu383.sp26.p03.g08",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -43,6 +44,13 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "a1469fe9-360a-413d-992d-b18307b739fc"
+      }
+    },
+    "owner": "onedekuall"
   }
 }
