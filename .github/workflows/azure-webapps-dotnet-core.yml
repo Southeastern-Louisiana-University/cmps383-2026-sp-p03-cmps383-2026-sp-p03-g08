@@ -2,8 +2,9 @@ name: Build and deploy ASP.Net Core app to an Azure Web App
 
 env:
   AZURE_WEBAPP_NAME: selu383-sp26-p03-g08
-  AZURE_WEBAPP_PACKAGE_PATH: './Selu383.SP26.Api'  
-  DOTNET_VERSION: '8.0.x'                           
+  AZURE_WEBAPP_PACKAGE_PATH: '.'   
+  DOTNET_VERSION: '8.0.x'
+
 on:
   push:
     branches: [ "main" ]
