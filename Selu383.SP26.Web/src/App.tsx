@@ -8,7 +8,7 @@ interface MenuItem { id: number; name: string; price: number; cat: string; desc:
 interface Table { id: number; seats: number; available: boolean; }
 interface CartItem extends MenuItem { qty: number; }
 interface User { name: string; email: string; }
-type Page = "login" | "signup" | "home" | "orderType" | "tableSelect" | "menu" | "cart" | "tracking";
+type Page = "login" | "signup" | "home" | "orderType" | "menu" | "cart" | "tableConfirm" | "tracking";
 
 const menuData: MenuItem[] = [
     { id: 1, name: "Classic Latte", price: 4.50, cat: "Hot Coffee", desc: "Espresso with steamed milk and light foam", popular: true, emoji: "☕" },
@@ -54,6 +54,7 @@ const s: Record<string, React.CSSProperties> = {
     btnOutline: { background: "transparent", color: "white", border: "2px solid rgba(255,255,255,0.6)", borderRadius: 10, padding: "11px 24px", fontWeight: 700, fontSize: 14, cursor: "pointer" },
     btnDark: { background: "#111", color: "white", border: "none", borderRadius: 8, padding: "10px 0", fontWeight: 600, fontSize: 13, cursor: "pointer", width: "100%" },
     btnDarkFull: { background: "#111", color: "white", border: "none", borderRadius: 12, padding: "14px", fontWeight: 700, fontSize: 15, cursor: "pointer", width: "100%" },
+    btnGhost: { background: "#f3f4f6", color: "#555", border: "1px solid #e5e7eb", borderRadius: 12, padding: "14px", fontWeight: 600, fontSize: 14, cursor: "pointer", width: "100%" },
     card: { background: "white", borderRadius: 16, padding: 24, border: "1px solid #e5e7eb", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" },
     menuCard: { background: "white", borderRadius: 16, overflow: "hidden", border: "1px solid #e5e7eb", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" },
     iconBox: { width: 48, height: 48, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, marginBottom: 14 },
@@ -64,6 +65,7 @@ const s: Record<string, React.CSSProperties> = {
     input: { width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid #e5e7eb", fontSize: 14, outline: "none", boxSizing: "border-box" as const, fontFamily: "inherit" },
     label: { fontSize: 13, fontWeight: 600, color: "#374151", marginBottom: 6, display: "block" },
     errBox: { background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#dc2626", marginBottom: 16 },
+    infoBox: { background: "#fffbeb", border: "1px solid #fcd34d", borderRadius: 10, padding: "12px 14px", fontSize: 13, color: "#92400e", marginBottom: 16 },
 };
 
 const Logo = ({ light = false }) => (
@@ -79,24 +81,15 @@ const NavBar = ({ onOrder, light = false, user, onLogout }: { onOrder: () => voi
         <div style={s.navLinks}>
             <button style={light ? s.navLink : s.navLinkDk}>Locations</button>
             <button style={light ? s.navLink : s.navLinkDk}>About</button>
-            {user && (
-                <span style={{ fontSize: 13, color: light ? "rgba(255,255,255,0.8)" : "#555", fontWeight: 500 }}>
-                    👋 {user.name.split(" ")[0]}
-                </span>
-            )}
-            {user
-                ? <button onClick={onLogout} style={{ ...s.btnGold, background: "transparent", color: light ? "white" : "#111", border: `2px solid ${light ? "rgba(255,255,255,0.5)" : "#e5e7eb"}`, padding: "10px 18px" }}>Sign Out</button>
-                : <button onClick={onOrder} style={s.btnGold}>Order Now</button>
-            }
-            {user && <button onClick={onOrder} style={s.btnGold}>Order Now</button>}
+            {user && <span style={{ fontSize: 13, color: light ? "rgba(255,255,255,0.8)" : "#555", fontWeight: 500 }}>👋 {user.name.split(" ")[0]}</span>}
+            {user && <button onClick={onLogout} style={{ ...s.btnGold, background: "transparent", color: light ? "white" : "#111", border: `2px solid ${light ? "rgba(255,255,255,0.5)" : "#e5e7eb"}`, padding: "10px 18px" }}>Sign Out</button>}
+            <button onClick={onOrder} style={s.btnGold}>Order Now</button>
         </div>
     </nav>
 );
 
 const BackBtn = ({ onClick }: { onClick: () => void }) => (
-    <button onClick={onClick} style={{ background: "none", border: "none", color: "#888", cursor: "pointer", fontSize: 14, marginBottom: 20, padding: 0, display: "flex", alignItems: "center", gap: 6 }}>
-        ← Back
-    </button>
+    <button onClick={onClick} style={{ background: "none", border: "none", color: "#888", cursor: "pointer", fontSize: 14, marginBottom: 20, padding: 0, display: "flex", alignItems: "center", gap: 6 }}>← Back</button>
 );
 
 export default function App() {
@@ -107,7 +100,6 @@ export default function App() {
     const [cart, setCart] = useState<CartItem[]>([]);
     const [cat, setCat] = useState("All");
 
-    // login/signup state
     const [loginEmail, setLoginEmail] = useState("");
     const [loginPass, setLoginPass] = useState("");
     const [loginErr, setLoginErr] = useState("");
@@ -123,8 +115,7 @@ export default function App() {
         if (!loginEmail.includes("@")) { setLoginErr("Please enter a valid email."); return; }
         if (loginPass.length < 6) { setLoginErr("Password must be at least 6 characters."); return; }
         setUser({ name: loginEmail.split("@")[0], email: loginEmail });
-        setPage("home");
-        setLoginErr("");
+        setPage("home"); setLoginErr("");
     };
 
     const handleSignup = () => {
@@ -133,8 +124,7 @@ export default function App() {
         if (signupPass.length < 6) { setSignupErr("Password must be at least 6 characters."); return; }
         if (signupPass !== signupPass2) { setSignupErr("Passwords do not match."); return; }
         setUser({ name: signupName, email: signupEmail });
-        setPage("home");
-        setSignupErr("");
+        setPage("home"); setSignupErr("");
     };
 
     const handleLogout = () => { setUser(null); setPage("login"); setCart([]); setSelectedTable(null); setOrderType(null); };
@@ -158,16 +148,9 @@ export default function App() {
         <div style={{ flex: 1, background: `linear-gradient(135deg,${GREEN} 0%,${GREEN2} 60%,${GREEN} 100%)`, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 48, minHeight: "100vh" }}>
             <div style={s.logoBox}>🦁</div>
             <h1 style={{ color: "white", fontSize: 32, fontWeight: 800, marginTop: 16, marginBottom: 8, textAlign: "center" }}>Caffeinated Lions</h1>
-            <p style={{ color: "rgba(255,255,255,0.7)", textAlign: "center", maxWidth: 280, lineHeight: 1.6, fontSize: 15 }}>
-                Premium coffee, zero wait. Order from your table, reserve your seat, or grab and go.
-            </p>
+            <p style={{ color: "rgba(255,255,255,0.7)", textAlign: "center", maxWidth: 280, lineHeight: 1.6, fontSize: 15 }}>Premium coffee, zero wait. Order from your table, reserve your seat, or grab and go.</p>
             <div style={{ marginTop: 48, display: "flex", flexDirection: "column", gap: 16, width: "100%", maxWidth: 260 }}>
-                {[
-                    { icon: "☕", text: "Order from your table" },
-                    { icon: "🚗", text: "Drive-thru & pickup support" },
-                    { icon: "📍", text: "Reserve your seat in advance" },
-                    { icon: "⚡", text: "Frictionless, fast service" },
-                ].map(f => (
+                {[{ icon: "☕", text: "Order from your table" }, { icon: "🚗", text: "Drive-thru & pickup support" }, { icon: "📍", text: "Reserve your seat in advance" }, { icon: "⚡", text: "Frictionless, fast service" }].map(f => (
                     <div key={f.text} style={{ display: "flex", alignItems: "center", gap: 12 }}>
                         <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(255,255,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>{f.icon}</div>
                         <span style={{ color: "rgba(255,255,255,0.85)", fontSize: 14 }}>{f.text}</span>
@@ -193,11 +176,8 @@ export default function App() {
                     <div style={{ marginBottom: 8 }}>
                         <label style={s.label}>Password</label>
                         <div style={{ position: "relative" }}>
-                            <input style={s.input} type={showPass ? "text" : "password"} placeholder="••••••••" value={loginPass} onChange={e => setLoginPass(e.target.value)}
-                                onKeyDown={e => e.key === "Enter" && handleLogin()} />
-                            <button onClick={() => setShowPass(!showPass)} style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#9ca3af", fontSize: 12, padding: 0 }}>
-                                {showPass ? "Hide" : "Show"}
-                            </button>
+                            <input style={s.input} type={showPass ? "text" : "password"} placeholder="••••••••" value={loginPass} onChange={e => setLoginPass(e.target.value)} onKeyDown={e => e.key === "Enter" && handleLogin()} />
+                            <button onClick={() => setShowPass(!showPass)} style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#9ca3af", fontSize: 12, padding: 0 }}>{showPass ? "Hide" : "Show"}</button>
                         </div>
                     </div>
                     <div style={{ textAlign: "right", marginBottom: 24 }}>
@@ -206,15 +186,10 @@ export default function App() {
                     <button onClick={handleLogin} style={s.btnGoldFull}>Sign In</button>
                     <div style={{ textAlign: "center", marginTop: 20, fontSize: 13, color: "#6b7280" }}>
                         Don't have an account?{" "}
-                        <button onClick={() => { setLoginErr(""); setPage("signup"); }} style={{ background: "none", border: "none", color: GREEN2, fontWeight: 700, cursor: "pointer", fontSize: 13, padding: 0 }}>
-                            Create one
-                        </button>
+                        <button onClick={() => { setLoginErr(""); setPage("signup"); }} style={{ background: "none", border: "none", color: GREEN2, fontWeight: 700, cursor: "pointer", fontSize: 13, padding: 0 }}>Create one</button>
                     </div>
-                    <div style={{ marginTop: 24, paddingTop: 20, borderTop: "1px solid #e5e7eb", textAlign: "center" }}>
-                        <button onClick={() => { setUser({ name: "Guest", email: "guest@caffeinatedlions.com" }); setPage("home"); }}
-                            style={{ ...s.btnDarkFull, background: "#f9fafb", color: "#555", border: "1px solid #e5e7eb" }}>
-                            Continue as Guest
-                        </button>
+                    <div style={{ marginTop: 24, paddingTop: 20, borderTop: "1px solid #e5e7eb" }}>
+                        <button onClick={() => { setUser({ name: "Guest", email: "guest@caffeinatedlions.com" }); setPage("home"); }} style={s.btnGhost}>Continue as Guest</button>
                     </div>
                 </div>
             </div>
@@ -230,34 +205,20 @@ export default function App() {
                     <h2 style={{ fontSize: 26, fontWeight: 800, marginBottom: 6 }}>Create an account</h2>
                     <p style={{ color: "#6b7280", fontSize: 14, marginBottom: 28 }}>Join Caffeinated Lions today</p>
                     {signupErr && <div style={s.errBox}>{signupErr}</div>}
-                    <div style={{ marginBottom: 16 }}>
-                        <label style={s.label}>Full name</label>
-                        <input style={s.input} type="text" placeholder="John Doe" value={signupName} onChange={e => setSignupName(e.target.value)} />
-                    </div>
-                    <div style={{ marginBottom: 16 }}>
-                        <label style={s.label}>Email address</label>
-                        <input style={s.input} type="email" placeholder="you@example.com" value={signupEmail} onChange={e => setSignupEmail(e.target.value)} />
-                    </div>
-                    <div style={{ marginBottom: 16 }}>
-                        <label style={s.label}>Password</label>
-                        <input style={s.input} type={showPass ? "text" : "password"} placeholder="Min. 6 characters" value={signupPass} onChange={e => setSignupPass(e.target.value)} />
-                    </div>
+                    <div style={{ marginBottom: 16 }}><label style={s.label}>Full name</label><input style={s.input} type="text" placeholder="John Doe" value={signupName} onChange={e => setSignupName(e.target.value)} /></div>
+                    <div style={{ marginBottom: 16 }}><label style={s.label}>Email address</label><input style={s.input} type="email" placeholder="you@example.com" value={signupEmail} onChange={e => setSignupEmail(e.target.value)} /></div>
+                    <div style={{ marginBottom: 16 }}><label style={s.label}>Password</label><input style={s.input} type={showPass ? "text" : "password"} placeholder="Min. 6 characters" value={signupPass} onChange={e => setSignupPass(e.target.value)} /></div>
                     <div style={{ marginBottom: 24 }}>
                         <label style={s.label}>Confirm password</label>
                         <div style={{ position: "relative" }}>
-                            <input style={s.input} type={showPass ? "text" : "password"} placeholder="Re-enter password" value={signupPass2} onChange={e => setSignupPass2(e.target.value)}
-                                onKeyDown={e => e.key === "Enter" && handleSignup()} />
-                            <button onClick={() => setShowPass(!showPass)} style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#9ca3af", fontSize: 12, padding: 0 }}>
-                                {showPass ? "Hide" : "Show"}
-                            </button>
+                            <input style={s.input} type={showPass ? "text" : "password"} placeholder="Re-enter password" value={signupPass2} onChange={e => setSignupPass2(e.target.value)} onKeyDown={e => e.key === "Enter" && handleSignup()} />
+                            <button onClick={() => setShowPass(!showPass)} style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#9ca3af", fontSize: 12, padding: 0 }}>{showPass ? "Hide" : "Show"}</button>
                         </div>
                     </div>
                     <button onClick={handleSignup} style={s.btnGoldFull}>Create Account</button>
                     <div style={{ textAlign: "center", marginTop: 20, fontSize: 13, color: "#6b7280" }}>
                         Already have an account?{" "}
-                        <button onClick={() => { setSignupErr(""); setPage("login"); }} style={{ background: "none", border: "none", color: GREEN2, fontWeight: 700, cursor: "pointer", fontSize: 13, padding: 0 }}>
-                            Sign in
-                        </button>
+                        <button onClick={() => { setSignupErr(""); setPage("login"); }} style={{ background: "none", border: "none", color: GREEN2, fontWeight: 700, cursor: "pointer", fontSize: 13, padding: 0 }}>Sign in</button>
                     </div>
                 </div>
             </div>
@@ -273,26 +234,23 @@ export default function App() {
                     <div style={s.badge}>Opening Soon • Multiple Locations</div>
                     <h1 style={{ fontSize: 58, fontWeight: 800, color: "white", margin: "20px 0 4px", lineHeight: 1.1 }}>Premium Coffee,</h1>
                     <h1 style={{ fontSize: 58, fontWeight: 800, color: GOLD, margin: "0 0 20px", lineHeight: 1.1 }}>Zero Wait</h1>
-                    <p style={{ color: "rgba(255,255,255,0.75)", fontSize: 18, maxWidth: 500, marginBottom: 32, lineHeight: 1.6 }}>
-                        Skip the line. Order from your phone, reserve your table, or grab and go.
-                    </p>
+                    <p style={{ color: "rgba(255,255,255,0.75)", fontSize: 18, maxWidth: 500, marginBottom: 32, lineHeight: 1.6 }}>Skip the line. Order from your phone, reserve your table, or grab and go.</p>
                     <div style={{ display: "flex", gap: 12 }}>
                         <button onClick={() => setPage("orderType")} style={s.btnGold}>Start Ordering</button>
-                        <button onClick={() => { setOrderType("Dine In"); setPage("tableSelect"); }} style={s.btnOutline}>Reserve a Table</button>
+                        <button onClick={() => { setOrderType("Dine In"); setPage("orderType"); }} style={s.btnOutline}>Reserve a Table</button>
                     </div>
                 </div>
             </div>
-
             <div style={{ background: "#f9fafb", padding: "64px 48px" }}>
                 <div style={s.center}>
                     <h2 style={{ textAlign: "center", fontSize: 32, fontWeight: 800, marginBottom: 8 }}>Order Your Way</h2>
                     <p style={{ textAlign: "center", color: "#6b7280", marginBottom: 40, fontSize: 15 }}>Choose the option that works best for you</p>
                     <div style={s.grid4}>
                         {[
-                            { icon: "☕", title: "Dine In", desc: "Order from your table with our seamless in-store experience", bg: "#d1fae5", action: () => { setOrderType("Dine In"); setPage("tableSelect"); } },
+                            { icon: "☕", title: "Dine In", desc: "Browse the menu, order, then claim your table", bg: "#d1fae5", action: () => { setOrderType("Dine In"); setPage("menu"); } },
                             { icon: "🛍️", title: "Quick Pickup", desc: "Pre-order and collect at your convenience", bg: "#dbeafe", action: () => { setOrderType("Pickup"); setPage("menu"); } },
                             { icon: "🚗", title: "Drive-Thru", desc: "Express service for customers on the go", bg: "#ede9fe", action: () => { setOrderType("Drive-Thru"); setPage("menu"); } },
-                            { icon: "📍", title: "Table Reservations", desc: "Secure your preferred seating in advance", bg: "#fef9c3", action: () => { setOrderType("Dine In"); setPage("tableSelect"); } },
+                            { icon: "📍", title: "Table Reservations", desc: "Secure your preferred seating in advance", bg: "#fef9c3", action: () => { setOrderType("Dine In"); setPage("menu"); } },
                         ].map(o => (
                             <button key={o.title} onClick={o.action} style={{ ...s.card, textAlign: "left", cursor: "pointer" }}>
                                 <div style={{ ...s.iconBox, background: o.bg }}>{o.icon}</div>
@@ -303,7 +261,6 @@ export default function App() {
                     </div>
                 </div>
             </div>
-
             <div style={{ padding: "64px 48px", background: "white" }}>
                 <div style={s.center}>
                     <h2 style={{ textAlign: "center", fontSize: 32, fontWeight: 800, marginBottom: 8 }}>Why Choose Us</h2>
@@ -323,7 +280,6 @@ export default function App() {
                     </div>
                 </div>
             </div>
-
             <footer style={{ background: "#111", padding: "28px 48px", ...s.between }}>
                 <Logo light />
                 <span style={{ color: "#6b7280", fontSize: 13 }}>© 2026 Caffeinated Lions. All rights reserved.</span>
@@ -341,7 +297,7 @@ export default function App() {
                 <p style={{ color: "#6b7280", marginBottom: 28, fontSize: 14 }}>Choose how you'd like to receive your order</p>
                 <div style={s.grid2}>
                     {[
-                        { icon: "🍴", title: "Dine In", desc: "Reserve a table and order directly from your seat", bg: "#d1fae5", pg: () => { setOrderType("Dine In"); setPage("tableSelect"); } },
+                        { icon: "🍴", title: "Dine In", desc: "Browse the menu and order — claim your table at checkout", bg: "#d1fae5", pg: () => { setOrderType("Dine In"); setPage("menu"); } },
                         { icon: "🛍️", title: "Pickup", desc: "Order ahead and collect at the counter", bg: "#dbeafe", pg: () => { setOrderType("Pickup"); setPage("menu"); } },
                         { icon: "🚚", title: "Drive-Thru", desc: "Express service without leaving your vehicle", bg: "#ede9fe", pg: () => { setOrderType("Drive-Thru"); setPage("menu"); } },
                         { icon: "☕", title: "Delivery", desc: "Delivered directly to your location", bg: "#ffedd5", pg: () => { setOrderType("Delivery"); setPage("menu"); } },
@@ -358,51 +314,15 @@ export default function App() {
         </div>
     );
 
-    // ── TABLE SELECT ──────────────────────────────────────────────────────────
-    if (page === "tableSelect") return (
-        <div style={s.page}>
-            <div style={{ background: "white", borderBottom: "1px solid #e5e7eb" }}><NavBar onOrder={() => setPage("orderType")} user={user} onLogout={handleLogout} /></div>
-            <div style={{ ...s.centerSm, paddingTop: 40, paddingBottom: 40 }}>
-                <BackBtn onClick={() => setPage("orderType")} />
-                <h1 style={{ fontSize: 26, fontWeight: 800, marginBottom: 6 }}>Select Your Table</h1>
-                <p style={{ color: "#6b7280", marginBottom: 28, fontSize: 14 }}>Choose from available seating options</p>
-                {Object.entries(tableData).map(([section, tables]) => (
-                    <div key={section} style={{ marginBottom: 32 }}>
-                        <div style={{ ...s.row, gap: 8, marginBottom: 14 }}>
-                            <span>📍</span>
-                            <span style={{ fontWeight: 700, fontSize: 15 }}>{section}</span>
-                        </div>
-                        <div style={s.grid3}>
-                            {tables.map(t => (
-                                <button key={t.id} disabled={!t.available} onClick={() => { setSelectedTable(t); setPage("menu"); }}
-                                    style={{
-                                        ...s.card, textAlign: "center", cursor: t.available ? "pointer" : "not-allowed", opacity: t.available ? 1 : 0.45,
-                                        border: selectedTable?.id === t.id ? `2px solid ${GOLD}` : "1px solid #e5e7eb", padding: 16
-                                    }}>
-                                    <div style={{ fontSize: 30, marginBottom: 8 }}>{section === "Private Booths" ? "🛋️" : "🪑"}</div>
-                                    <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 4 }}>Table {t.id}</div>
-                                    <div style={{ color: "#9ca3af", fontSize: 11, marginBottom: 8 }}>👥 {t.seats} seats</div>
-                                    <span style={{ ...s.pill, background: t.available ? "#d1fae5" : "#f3f4f6", color: t.available ? "#065f46" : "#6b7280" }}>
-                                        {t.available ? "Available" : "Occupied"}
-                                    </span>
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                ))}
-            </div>
-        </div>
-    );
-
     // ── MENU ──────────────────────────────────────────────────────────────────
     if (page === "menu") return (
         <div style={s.page}>
             <div style={{ background: "white", borderBottom: "1px solid #e5e7eb", padding: "14px 24px", ...s.between, position: "sticky", top: 0, zIndex: 10 }}>
                 <div style={{ ...s.row, gap: 12 }}>
-                    <button onClick={() => setPage(orderType === "Dine In" ? "tableSelect" : "orderType")} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: "#555" }}>←</button>
+                    <button onClick={() => setPage("orderType")} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: "#555" }}>←</button>
                     <div>
                         <div style={{ fontWeight: 700, fontSize: 18 }}>Our Menu</div>
-                        <div style={{ color: "#6b7280", fontSize: 12 }}>{orderType || "Dine In"}{selectedTable ? ` • Table ${selectedTable.id}` : ""}</div>
+                        <div style={{ color: "#6b7280", fontSize: 12 }}>{orderType || "Dine In"}</div>
                     </div>
                 </div>
                 <button onClick={() => setPage("cart")} style={{ ...s.btnGold, display: "flex", alignItems: "center", gap: 8, padding: "10px 18px" }}>
@@ -448,11 +368,28 @@ export default function App() {
                 </div>
             </div>
             <div style={{ ...s.centerSm, paddingTop: 28, paddingBottom: 28 }}>
+
+                {/* Order type info */}
                 <div style={{ ...s.card, marginBottom: 16 }}>
                     <div style={{ fontWeight: 700, marginBottom: 12 }}>Order Information</div>
                     <div style={{ ...s.between, fontSize: 13, paddingBottom: 8 }}><span style={{ color: "#6b7280" }}>Order Type</span><span style={{ fontWeight: 600 }}>{orderType || "Dine In"}</span></div>
-                    {selectedTable && <div style={{ ...s.between, fontSize: 13 }}><span style={{ color: "#6b7280" }}>Table Number</span><span style={{ fontWeight: 600 }}>{selectedTable.id}</span></div>}
+                    {orderType === "Dine In" && (
+                        <div style={{ ...s.between, fontSize: 13, paddingTop: 8, borderTop: "1px solid #f0f0f0" }}>
+                            <span style={{ color: "#6b7280" }}>Table</span>
+                            <button onClick={() => setPage("tableConfirm")} style={{ background: "none", border: "none", cursor: "pointer", color: GREEN2, fontWeight: 700, fontSize: 13, padding: 0 }}>
+                                {selectedTable ? `Table ${selectedTable.id} — Change` : "⊕ Select a Table"}
+                            </button>
+                        </div>
+                    )}
                 </div>
+
+                {/* Dine-in hint */}
+                {orderType === "Dine In" && !selectedTable && (
+                    <div style={s.infoBox}>
+                        💡 No table selected — your name will be called when your order is ready. You can also <button onClick={() => setPage("tableConfirm")} style={{ background: "none", border: "none", cursor: "pointer", color: "#92400e", fontWeight: 700, fontSize: 13, padding: 0, textDecoration: "underline" }}>select a table</button> now.
+                    </div>
+                )}
+
                 {cart.length === 0 ? (
                     <div style={{ ...s.card, textAlign: "center", padding: 48 }}>
                         <div style={{ fontSize: 48, marginBottom: 12 }}>🛒</div>
@@ -490,6 +427,51 @@ export default function App() {
                         <button onClick={() => setPage("tracking")} style={s.btnGoldFull}>Place Order • ${total.toFixed(2)}</button>
                     </>
                 )}
+            </div>
+        </div>
+    );
+
+    // ── TABLE CONFIRM (optional at checkout) ─────────────────────────────────
+    if (page === "tableConfirm") return (
+        <div style={s.page}>
+            <div style={{ background: "white", borderBottom: "1px solid #e5e7eb", padding: "14px 24px", ...s.row, gap: 12 }}>
+                <button onClick={() => setPage("cart")} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: "#555" }}>←</button>
+                <div>
+                    <div style={{ fontWeight: 700, fontSize: 18 }}>Select Your Table</div>
+                    <div style={{ color: "#6b7280", fontSize: 12 }}>Optional — skip to use name-based pickup</div>
+                </div>
+            </div>
+            <div style={{ ...s.centerSm, paddingTop: 28, paddingBottom: 28 }}>
+                <div style={s.infoBox}>
+                    💡 You can skip this step — if no table is selected, your name will be called when your order is ready.
+                </div>
+                {Object.entries(tableData).map(([section, tables]) => (
+                    <div key={section} style={{ marginBottom: 32 }}>
+                        <div style={{ ...s.row, gap: 8, marginBottom: 14 }}>
+                            <span>📍</span>
+                            <span style={{ fontWeight: 700, fontSize: 15 }}>{section}</span>
+                        </div>
+                        <div style={s.grid3}>
+                            {tables.map(t => (
+                                <button key={t.id} disabled={!t.available} onClick={() => { setSelectedTable(t); setPage("cart"); }}
+                                    style={{
+                                        ...s.card, textAlign: "center", cursor: t.available ? "pointer" : "not-allowed", opacity: t.available ? 1 : 0.45,
+                                        border: selectedTable?.id === t.id ? `2px solid ${GOLD}` : "1px solid #e5e7eb", padding: 16
+                                    }}>
+                                    <div style={{ fontSize: 30, marginBottom: 8 }}>{section === "Private Booths" ? "🛋️" : "🪑"}</div>
+                                    <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 4 }}>Table {t.id}</div>
+                                    <div style={{ color: "#9ca3af", fontSize: 11, marginBottom: 8 }}>👥 {t.seats} seats</div>
+                                    <span style={{ ...s.pill, background: t.available ? "#d1fae5" : "#f3f4f6", color: t.available ? "#065f46" : "#6b7280" }}>
+                                        {t.available ? "Available" : "Occupied"}
+                                    </span>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                ))}
+                <button onClick={() => { setSelectedTable(null); setPage("cart"); }} style={s.btnGhost}>
+                    Skip — Use Name Pickup Instead
+                </button>
             </div>
         </div>
     );
@@ -537,7 +519,10 @@ export default function App() {
                 <div style={{ ...s.card, marginBottom: 16 }}>
                     <div style={{ fontWeight: 700, marginBottom: 14 }}>Order Details</div>
                     <div style={{ ...s.between, fontSize: 13, marginBottom: 8 }}><span style={{ color: "#6b7280" }}>Order Type</span><span style={{ fontWeight: 600 }}>{orderType || "Dine In"}</span></div>
-                    {selectedTable && <div style={{ ...s.between, fontSize: 13, marginBottom: 8 }}><span style={{ color: "#6b7280" }}>Table Number</span><span style={{ fontWeight: 600 }}>{selectedTable.id}</span></div>}
+                    <div style={{ ...s.between, fontSize: 13, marginBottom: 8 }}>
+                        <span style={{ color: "#6b7280" }}>Table / Pickup</span>
+                        <span style={{ fontWeight: 600 }}>{selectedTable ? `Table ${selectedTable.id}` : `Name: ${user?.name || "Guest"}`}</span>
+                    </div>
                     <div style={{ ...s.between, fontSize: 13 }}><span style={{ color: "#6b7280" }}>Order Time</span><span style={{ fontWeight: 600 }}>{new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span></div>
                 </div>
                 <div style={{ ...s.card, marginBottom: 20 }}>
