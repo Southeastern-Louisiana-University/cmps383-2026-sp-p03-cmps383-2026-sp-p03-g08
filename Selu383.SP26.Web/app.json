@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "6859801e-6f3b-488e-aeb0-af8a522e47d1"
+      }
+    },
+    "android": {
+      "package": "com.onedekuall.selu383sp26web"
+    }
+  }
+}
