@@ -15,7 +15,6 @@ public static class SeedHelper
 
         await AddRoles(serviceProvider);
         await AddUsers(serviceProvider);
-
         await AddLocations(dataContext);
     }
 
@@ -29,24 +28,15 @@ public static class SeedHelper
             return;
         }
 
-        var adminUser = new User
-        {
-            UserName = "galkadi"
-        };
+        var adminUser = new User { UserName = "galkadi" };
         await userManager.CreateAsync(adminUser, defaultPassword);
         await userManager.AddToRoleAsync(adminUser, RoleNames.Admin);
 
-        var bob = new User
-        {
-            UserName = "bob"
-        };
+        var bob = new User { UserName = "bob" };
         await userManager.CreateAsync(bob, defaultPassword);
         await userManager.AddToRoleAsync(bob, RoleNames.User);
 
-        var sue = new User
-        {
-            UserName = "sue"
-        };
+        var sue = new User { UserName = "sue" };
         await userManager.CreateAsync(sue, defaultPassword);
         await userManager.AddToRoleAsync(sue, RoleNames.User);
     }
@@ -58,23 +48,23 @@ public static class SeedHelper
         {
             return;
         }
-        await roleManager.CreateAsync(new Role
-        {
-            Name = RoleNames.Admin
-        });
 
-        await roleManager.CreateAsync(new Role
-        {
-            Name = RoleNames.User
-        });
+        await roleManager.CreateAsync(new Role { Name = RoleNames.Admin });
+        await roleManager.CreateAsync(new Role { Name = RoleNames.User });
     }
 
     private static async Task AddLocations(DataContext dataContext)
     {
+        // ✅ Check if locations already exist before seeding
+        if (dataContext.Set<Location>().Any())
+        {
+            return;
+        }
+
         dataContext.Set<Location>().AddRange(
-            new Location { Name = "Location 1", Address = "123 Main St", TableCount = 10 },
-            new Location { Name = "Location 2", Address = "456 Oak Ave", TableCount = 20 },
-            new Location { Name = "Location 3", Address = "789 Pine Ln", TableCount = 15 }
+            new Location { Name = "Caffeinated Lions Downtown",  Address = "123 Main St, Hammond, LA 70401",    TableCount = 10 },
+            new Location { Name = "Caffeinated Lions Northside", Address = "456 Oak Ave, Hammond, LA 70403",    TableCount = 12 },
+            new Location { Name = "Caffeinated Lions Lakefront", Address = "789 Lake Shore Dr, Mandeville, LA 70448", TableCount = 15 }
         );
 
         await dataContext.SaveChangesAsync();
