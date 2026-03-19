@@ -270,7 +270,180 @@ function BottomTabBar({ user, tab, setTab }:any) {
   );
 }
 
-// ── Popular Reel ──────────────────────────────────────────────────────
+// ── Reservations Tab ─────────────────────────────────────────────────
+function ReservationsTab({ isMobile }:any) {
+  const T = useTheme();
+  const [step,     setStep]     = useState(1);
+  const [date,     setDate]     = useState("");
+  const [time,     setTime]     = useState("");
+  const [guests,   setGuests]   = useState(2);
+  const [table,    setTable]    = useState<number|null>(null);
+  const [confirmed,setConfirmed]= useState(false);
+
+  const times = ["8:00 AM","8:30 AM","9:00 AM","9:30 AM","10:00 AM","10:30 AM","11:00 AM","11:30 AM",
+    "12:00 PM","12:30 PM","1:00 PM","1:30 PM","2:00 PM","2:30 PM","3:00 PM","3:30 PM",
+    "4:00 PM","4:30 PM","5:00 PM","5:30 PM","6:00 PM","6:30 PM","7:00 PM","7:30 PM","8:00 PM"];
+
+  const today = new Date().toISOString().split("T")[0];
+
+  const confirm = () => { if(table) setConfirmed(true); };
+  const reset   = () => { setStep(1); setDate(""); setTime(""); setGuests(2); setTable(null); setConfirmed(false); };
+
+  if(confirmed) return (
+    <div style={{ ...C.card, padding:32, textAlign:"center", background:T.card, border:`1px solid ${T.border}` }}>
+      <div style={{ fontSize:52, marginBottom:12 }}>✅</div>
+      <h2 style={{ fontWeight:900, fontSize:20, color:T.text, marginBottom:8 }}>Reservation Confirmed!</h2>
+      <div style={{ background:T.isDark?"#14291a":"#f0fdf4", borderRadius:12, padding:20, margin:"16px 0", textAlign:"left" }}>
+        <div style={{ display:"flex", justifyContent:"space-between", marginBottom:8 }}>
+          <span style={{ color:T.subtext, fontSize:14 }}>📅 Date</span>
+          <span style={{ fontWeight:700, color:T.text, fontSize:14 }}>{new Date(date).toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})}</span>
+        </div>
+        <div style={{ display:"flex", justifyContent:"space-between", marginBottom:8 }}>
+          <span style={{ color:T.subtext, fontSize:14 }}>🕐 Time</span>
+          <span style={{ fontWeight:700, color:T.text, fontSize:14 }}>{time}</span>
+        </div>
+        <div style={{ display:"flex", justifyContent:"space-between", marginBottom:8 }}>
+          <span style={{ color:T.subtext, fontSize:14 }}>👥 Guests</span>
+          <span style={{ fontWeight:700, color:T.text, fontSize:14 }}>{guests} {guests===1?"person":"people"}</span>
+        </div>
+        <div style={{ display:"flex", justifyContent:"space-between" }}>
+          <span style={{ color:T.subtext, fontSize:14 }}>🪑 Table</span>
+          <span style={{ fontWeight:700, color:T.text, fontSize:14 }}>Table {table}</span>
+        </div>
+      </div>
+      <p style={{ color:T.subtext, fontSize:13, marginBottom:20 }}>We'll see you soon! A confirmation has been sent to your email.</p>
+      <button onClick={reset} style={{ ...btn(gold), padding:"11px 28px" }}>Make Another Reservation</button>
+    </div>
+  );
+
+  return (
+    <div style={{ ...C.card, padding:isMobile?16:28, background:T.card, border:`1px solid ${T.border}` }}>
+      <h2 style={{ fontWeight:900, fontSize:20, color:T.text, marginBottom:4 }}>🪑 Reserve a Table</h2>
+      <p style={{ color:T.subtext, fontSize:13, marginBottom:24 }}>Book your spot at Caffeinated Lions</p>
+
+      {/* Step Indicator */}
+      <div style={{ display:"flex", alignItems:"center", marginBottom:28 }}>
+        {["Date & Time","Party Size","Choose Table"].map((s,i)=>(
+          <div key={i} style={{ display:"flex", alignItems:"center", flex: i<2?1:"auto" }}>
+            <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:4 }}>
+              <div style={{ width:32, height:32, borderRadius:"50%", background:step>i?gold:step===i+1?gold:T.surface2,
+                color:step>=i+1?"#fff":T.subtext, display:"flex", alignItems:"center", justifyContent:"center",
+                fontWeight:800, fontSize:13 }}>
+                {step>i+1?"✓":i+1}
+              </div>
+              <span style={{ fontSize:10, fontWeight:700, color:step===i+1?gold:T.subtext, whiteSpace:"nowrap" }}>{s}</span>
+            </div>
+            {i<2 && <div style={{ flex:1, height:2, background:step>i+1?gold:T.surface2, margin:"0 8px", marginBottom:18 }} />}
+          </div>
+        ))}
+      </div>
+
+      {/* Step 1 — Date & Time */}
+      {step===1 && (
+        <div>
+          <div style={{ marginBottom:20 }}>
+            <label style={{ display:"block", fontWeight:700, fontSize:14, color:T.text, marginBottom:8 }}>📅 Select Date</label>
+            <input type="date" value={date} min={today} onChange={e=>setDate(e.target.value)}
+              style={{ width:"100%", padding:"12px 14px", borderRadius:10, border:`2px solid ${date?gold:T.border}`,
+                background:T.inputBg, color:T.inputText, fontSize:14, boxSizing:"border-box", outline:"none" }} />
+          </div>
+          {date && (
+            <div>
+              <label style={{ display:"block", fontWeight:700, fontSize:14, color:T.text, marginBottom:8 }}>🕐 Select Time</label>
+              <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(100px,1fr))", gap:8 }}>
+                {times.map(t=>(
+                  <button key={t} onClick={()=>setTime(t)}
+                    style={{ ...btn(time===t?gold:T.surface2, time===t?"#fff":T.text), padding:"9px 6px", fontSize:12, borderRadius:8 }}>{t}</button>
+                ))}
+              </div>
+            </div>
+          )}
+          <button onClick={()=>setStep(2)} disabled={!date||!time}
+            style={{ ...btn(!date||!time?T.surface2:gold, !date||!time?T.subtext:"#fff"), width:"100%", padding:"13px 0", marginTop:24, fontSize:14 }}>
+            Continue →
+          </button>
+        </div>
+      )}
+
+      {/* Step 2 — Party Size */}
+      {step===2 && (
+        <div>
+          <div style={{ background:T.surface2, borderRadius:12, padding:16, marginBottom:24 }}>
+            <div style={{ display:"flex", justifyContent:"space-between", fontSize:13, color:T.subtext, marginBottom:4 }}>
+              <span>📅 {new Date(date).toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})}</span>
+              <span>🕐 {time}</span>
+            </div>
+          </div>
+          <label style={{ display:"block", fontWeight:700, fontSize:14, color:T.text, marginBottom:16 }}>👥 How many guests?</label>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:10, marginBottom:24 }}>
+            {[1,2,3,4,5,6,7,8].map(n=>(
+              <button key={n} onClick={()=>setGuests(n)}
+                style={{ ...btn(guests===n?gold:T.surface2, guests===n?"#fff":T.text), padding:"18px 0", borderRadius:12, fontSize:16, fontWeight:800 }}>
+                {n}{n===8?"+":""}
+              </button>
+            ))}
+          </div>
+          <div style={{ display:"flex", gap:10 }}>
+            <button onClick={()=>setStep(1)} style={{ ...btn(T.surface2,T.text), flex:1, padding:"13px 0" }}>← Back</button>
+            <button onClick={()=>setStep(3)} style={{ ...btn(gold), flex:2, padding:"13px 0", fontSize:14 }}>Continue →</button>
+          </div>
+        </div>
+      )}
+
+      {/* Step 3 — Choose Table */}
+      {step===3 && (
+        <div>
+          <div style={{ background:T.surface2, borderRadius:12, padding:16, marginBottom:20 }}>
+            <div style={{ display:"flex", justifyContent:"space-between", fontSize:13, color:T.subtext }}>
+              <span>📅 {new Date(date).toLocaleDateString("en-US",{month:"short",day:"numeric"})}</span>
+              <span>🕐 {time}</span>
+              <span>👥 {guests} guests</span>
+            </div>
+          </div>
+          <label style={{ display:"block", fontWeight:700, fontSize:14, color:T.text, marginBottom:8 }}>🪑 Select a table</label>
+          <p style={{ color:T.subtext, fontSize:12, marginBottom:16 }}>
+            <span style={{ display:"inline-block", width:12, height:12, borderRadius:"50%", background:"#16a34a", marginRight:6 }} />Available &nbsp;
+            <span style={{ display:"inline-block", width:12, height:12, borderRadius:"50%", background:"#e5e7eb", marginRight:6 }} />Taken
+          </p>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:10, marginBottom:24 }}>
+            {[1,2,3,4,5,6,7,8].map(t=>{
+              const taken = [2,5].includes(t);
+              return (
+                <button key={t} onClick={()=>!taken&&setTable(t)} disabled={taken}
+                  style={{ ...btn(table===t?gold:taken?"#e5e7eb":T.surface2, table===t?"#fff":taken?"#aaa":T.text),
+                    padding:"20px 0", borderRadius:12, fontSize:14, fontWeight:800,
+                    border: table===t?`2px solid ${gold}`:"2px solid transparent",
+                    cursor: taken?"not-allowed":"pointer" }}>
+                  T{t}{taken?"🚫":""}
+                </button>
+              );
+            })}
+          </div>
+          {table && (
+            <div style={{ background:T.isDark?"#14291a":"#f0fdf4", borderRadius:10, padding:"12px 16px", marginBottom:16 }}>
+              <div style={{ fontWeight:700, color:"#16a34a", fontSize:14 }}>✅ Table {table} selected</div>
+              <div style={{ color:T.subtext, fontSize:12, marginTop:2 }}>
+                {new Date(date).toLocaleDateString("en-US",{month:"short",day:"numeric"})} at {time} · {guests} guests
+              </div>
+            </div>
+          )}
+          <div style={{ display:"flex", gap:10 }}>
+            <button onClick={()=>setStep(2)} style={{ ...btn(T.surface2,T.text), flex:1, padding:"13px 0" }}>← Back</button>
+            <button onClick={confirm} disabled={!table}
+              style={{ ...btn(!table?T.surface2:gold, !table?T.subtext:"#fff"), flex:2, padding:"13px 0", fontSize:14 }}>
+              Confirm Reservation
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── C helper (needed for ReservationsTab) ─────────────────────────────
+const C = {
+  card: { background:"#fff", borderRadius:14, border:"1px solid #e5e7eb", boxShadow:"0 2px 8px rgba(0,0,0,.05)", overflow:"hidden" } as React.CSSProperties,
+};
 function PopularReel({ onSignup }:any) {
   const T = useTheme();
   const popular = MENU.filter(m=>m.popular).sort((a,b)=>b.orders-a.orders);
@@ -306,7 +479,8 @@ function PopularReel({ onSignup }:any) {
 }
 
 // ── Guest Home ────────────────────────────────────────────────────────
-function GuestHome({ setPage }:any) {
+function GuestHome({ setPage: _setPage }:any) {
+  const setPage = _setPage;
   const T = useTheme();
   const isMobile = useIsMobile();
   const top3 = [...MENU].sort((a,b)=>b.orders-a.orders).slice(0,3);

@@ -402,7 +402,179 @@ function LoginScreen({ onLogin, onGuest, isDark, setIsDark }: any) {
   );
 }
 
-// ── Locations Screen ──────────────────────────────────────────────────
+// ── Reservations Screen ───────────────────────────────────────────────
+function ReservationsScreen({ T }: any) {
+  const [step,      setStep]      = useState(1);
+  const [date,      setDate]      = useState("");
+  const [time,      setTime]      = useState("");
+  const [guests,    setGuests]    = useState(2);
+  const [table,     setTable]     = useState<number|null>(null);
+  const [confirmed, setConfirmed] = useState(false);
+
+  const times = ["8:00 AM","9:00 AM","10:00 AM","11:00 AM","12:00 PM",
+                 "1:00 PM","2:00 PM","3:00 PM","4:00 PM","5:00 PM","6:00 PM","7:00 PM","8:00 PM"];
+
+  const reset = () => { setStep(1); setDate(""); setTime(""); setGuests(2); setTable(null); setConfirmed(false); };
+
+  if (confirmed) return (
+    <ScrollView contentContainerStyle={{ padding:20 }}>
+      <View style={{ alignItems:"center", padding:20 }}>
+        <Text style={{ fontSize:60, marginBottom:12 }}>✅</Text>
+        <Text style={{ fontWeight:"900", fontSize:22, color:T.text, marginBottom:8 }}>Reservation Confirmed!</Text>
+        <View style={{ backgroundColor:T.isDark?"#14291a":"#f0fdf4", borderRadius:14, padding:20, width:"100%", marginVertical:16 }}>
+          {[["📅 Date", new Date(date).toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})],
+            ["🕐 Time", time],["👥 Guests", `${guests} ${guests===1?"person":"people"}`],["🪑 Table", `Table ${table}`]
+          ].map(([label,val],i) => (
+            <View key={i} style={{ flexDirection:"row", justifyContent:"space-between", marginBottom:10 }}>
+              <Text style={{ color:T.subtext, fontSize:14 }}>{label}</Text>
+              <Text style={{ fontWeight:"700", color:T.text, fontSize:14 }}>{val}</Text>
+            </View>
+          ))}
+        </View>
+        <Text style={{ color:T.subtext, fontSize:13, textAlign:"center", marginBottom:20 }}>
+          We'll see you soon! A confirmation has been sent to your email.
+        </Text>
+        <GoldBtn label="Make Another Reservation" onPress={reset} />
+      </View>
+    </ScrollView>
+  );
+
+  return (
+    <ScrollView contentContainerStyle={{ padding:16, paddingBottom:40 }}>
+      <Text style={[s.secTitle, { color:T.text }]}>🪑 Reserve a Table</Text>
+      <Text style={[s.secSub, { color:T.subtext }]}>Book your spot at Caffeinated Lions</Text>
+
+      {/* Step Indicator */}
+      <View style={{ flexDirection:"row", alignItems:"center", marginBottom:24 }}>
+        {["Date & Time","Party Size","Table"].map((label,i) => (
+          <View key={i} style={{ flex: i<2?1:0, flexDirection:"row", alignItems:"center" }}>
+            <View style={{ alignItems:"center" }}>
+              <View style={{ width:32, height:32, borderRadius:16,
+                backgroundColor:step>=i+1?gold:T.surface2,
+                alignItems:"center", justifyContent:"center" }}>
+                <Text style={{ color:step>=i+1?"#fff":T.subtext, fontWeight:"800", fontSize:13 }}>
+                  {step>i+1?"✓":`${i+1}`}
+                </Text>
+              </View>
+              <Text style={{ fontSize:9, fontWeight:"700", color:step===i+1?gold:T.subtext, marginTop:3 }}>{label}</Text>
+            </View>
+            {i<2 && <View style={{ flex:1, height:2, backgroundColor:step>i+1?gold:T.surface2, marginHorizontal:6, marginBottom:14 }} />}
+          </View>
+        ))}
+      </View>
+
+      {/* Step 1 — Date & Time */}
+      {step===1 && (
+        <View>
+          <Text style={{ fontWeight:"700", fontSize:14, color:T.text, marginBottom:10 }}>📅 Select Date</Text>
+          <View style={{ flexDirection:"row", flexWrap:"wrap", gap:8, marginBottom:20 }}>
+            {Array.from({length:14},(_,i) => {
+              const d = new Date(); d.setDate(d.getDate()+i);
+              const val = d.toISOString().split("T")[0];
+              const label = i===0?"Today":i===1?"Tomorrow":d.toLocaleDateString("en-US",{month:"short",day:"numeric"});
+              return (
+                <TouchableOpacity key={val} onPress={() => setDate(val)}
+                  style={{ backgroundColor:date===val?gold:T.surface2, borderRadius:10, padding:10, minWidth:70, alignItems:"center",
+                    borderWidth:2, borderColor:date===val?gold:"transparent" }}>
+                  <Text style={{ color:date===val?"#fff":T.subtext, fontSize:11, fontWeight:"700" }}>{label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {date && (
+            <View>
+              <Text style={{ fontWeight:"700", fontSize:14, color:T.text, marginBottom:10 }}>🕐 Select Time</Text>
+              <View style={{ flexDirection:"row", flexWrap:"wrap", gap:8, marginBottom:20 }}>
+                {times.map(t => (
+                  <TouchableOpacity key={t} onPress={() => setTime(t)}
+                    style={{ backgroundColor:time===t?gold:T.surface2, borderRadius:10, padding:10,
+                      borderWidth:2, borderColor:time===t?gold:"transparent" }}>
+                    <Text style={{ color:time===t?"#fff":T.subtext, fontSize:12, fontWeight:"700" }}>{t}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          )}
+          <GoldBtn label="Continue →" onPress={() => setStep(2)}
+            style={{ opacity: !date||!time ? 0.4 : 1 }} />
+        </View>
+      )}
+
+      {/* Step 2 — Party Size */}
+      {step===2 && (
+        <View>
+          <View style={{ backgroundColor:T.surface2, borderRadius:12, padding:14, marginBottom:20 }}>
+            <Text style={{ color:T.subtext, fontSize:13 }}>
+              📅 {new Date(date).toLocaleDateString("en-US",{month:"long",day:"numeric"})}  🕐 {time}
+            </Text>
+          </View>
+          <Text style={{ fontWeight:"700", fontSize:14, color:T.text, marginBottom:14 }}>👥 How many guests?</Text>
+          <View style={s.tableGrid}>
+            {[1,2,3,4,5,6,7,8].map(n => (
+              <TouchableOpacity key={n} onPress={() => setGuests(n)}
+                style={[s.tableBtn, { backgroundColor:guests===n?gold:T.surface2,
+                  borderWidth:2, borderColor:guests===n?gold:"transparent" }]}>
+                <Text style={[s.tableBtnTxt, { color:guests===n?"#fff":T.text }]}>{n}{n===8?"+":""}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <View style={{ flexDirection:"row", gap:10, marginTop:20 }}>
+            <OutlineBtn label="← Back" onPress={() => setStep(1)} style={{ flex:1 }} T={T} />
+            <GoldBtn label="Continue →" onPress={() => setStep(3)} style={{ flex:2 }} />
+          </View>
+        </View>
+      )}
+
+      {/* Step 3 — Choose Table */}
+      {step===3 && (
+        <View>
+          <View style={{ backgroundColor:T.surface2, borderRadius:12, padding:14, marginBottom:20 }}>
+            <Text style={{ color:T.subtext, fontSize:13 }}>
+              📅 {new Date(date).toLocaleDateString("en-US",{month:"short",day:"numeric"})}  🕐 {time}  👥 {guests} guests
+            </Text>
+          </View>
+          <Text style={{ fontWeight:"700", fontSize:14, color:T.text, marginBottom:6 }}>🪑 Select a table</Text>
+          <View style={{ flexDirection:"row", gap:12, marginBottom:16 }}>
+            <Text style={{ color:T.subtext, fontSize:12 }}>🟢 Available</Text>
+            <Text style={{ color:T.subtext, fontSize:12 }}>🔴 Taken</Text>
+          </View>
+          <View style={s.tableGrid}>
+            {[1,2,3,4,5,6,7,8].map(tableNum => {
+              const taken = [2,5].includes(tableNum);
+              return (
+                <TouchableOpacity key={tableNum} onPress={() => !taken && setTable(tableNum)} disabled={taken}
+                  style={[s.tableBtn, {
+                    backgroundColor: table===tableNum ? gold : taken ? "#fee2e2" : T.surface2,
+                    borderWidth: 2,
+                    borderColor: table===tableNum ? gold : taken ? "#fca5a5" : "transparent",
+                    opacity: taken ? 0.6 : 1
+                  }]}>
+                  <Text style={[s.tableBtnTxt, { color: table===tableNum ? "#fff" : taken ? "#dc2626" : T.text }]}>
+                    T{tableNum}{taken ? "🚫" : ""}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+          {table && (
+            <View style={[s.successBox, { backgroundColor:T.isDark?"#14291a":"#dcfce7", marginTop:16 }]}>
+              <Text style={{ color:"#16a34a", fontWeight:"700" }}>✅ Table {table} selected</Text>
+              <Text style={{ color:"#16a34a", fontSize:12, marginTop:2 }}>
+                {new Date(date).toLocaleDateString("en-US",{month:"short",day:"numeric"})} at {time} · {guests} guests
+              </Text>
+            </View>
+          )}
+          <View style={{ flexDirection:"row", gap:10, marginTop:20 }}>
+            <OutlineBtn label="← Back" onPress={() => setStep(2)} style={{ flex:1 }} T={T} />
+            <GoldBtn label="Confirm Reservation" onPress={() => table && setConfirmed(true)}
+              style={{ flex:2, opacity: !table?0.4:1 }} />
+          </View>
+        </View>
+      )}
+    </ScrollView>
+  );
+}
 function LocationsScreen({ T }: any) {
   const [sel, setSel] = useState<number|null>(null);
   return (
@@ -659,25 +831,7 @@ function CustomerApp({ user, setUser, onLogout, isDark, setIsDark }: any) {
         {tab==="rewards" && <RewardsScreen user={user} T={T} />}
         {tab==="locations" && <LocationsScreen T={T} />}
 
-        {tab==="reservations" && (
-          <View>
-            <Text style={[s.secTitle, { color:T.text }]}>🪑 Reserve a Table</Text>
-            <Text style={[s.secSub, { color:T.subtext }]}>Tap a table to reserve it</Text>
-            <View style={s.tableGrid}>
-              {[1,2,3,4,5,6,7,8].map(t => (
-                <TouchableOpacity key={t} onPress={() => setReserved(t)}
-                  style={[s.tableBtn, { backgroundColor:reserved===t?"#16a34a":T.surface2 }]}>
-                  <Text style={[s.tableBtnTxt, { color:reserved===t?"#fff":T.text }]}>T{t}{reserved===t?" ✓":""}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-            {reserved && (
-              <View style={[s.successBox, { backgroundColor:T.isDark?"#14291a":"#dcfce7" }]}>
-                <Text style={{ color:"#16a34a", fontWeight:"700" }}>✅ Table {reserved} reserved!</Text>
-              </View>
-            )}
-          </View>
-        )}
+        {tab==="reservations" && <ReservationsScreen T={T} />}
 
         {tab==="track" && (
           <View>
