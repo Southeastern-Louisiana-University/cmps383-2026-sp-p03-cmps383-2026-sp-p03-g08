@@ -4,6 +4,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <SpaRoot>..\Selu383.SP26.Web\</SpaRoot>
   </PropertyGroup>
 
   <ItemGroup>
@@ -20,5 +21,29 @@
   <ItemGroup>
     <ProjectReference Include="..\Selu383.SP26.Web\Selu383.SP26.Web.esproj" />
   </ItemGroup>
+
+  <!-- Copy frontend build output into wwwroot on publish -->
+  <Target Name="CopyFrontendToWwwroot" AfterTargets="Publish">
+    <ItemGroup>
+      <FrontendFiles Include="$(SpaRoot)dist\**\*.*" />
+    </ItemGroup>
+    <Copy
+      SourceFiles="@(FrontendFiles)"
+      DestinationFiles="@(FrontendFiles->'$(PublishDir)wwwroot\%(RecursiveDir)%(Filename)%(Extension)')"
+      SkipUnchangedFiles="true"
+    />
+  </Target>
+
+  <!-- Also copy during build for local development -->
+  <Target Name="CopyFrontendToBuild" AfterTargets="Build" Condition="Exists('$(SpaRoot)dist')">
+    <ItemGroup>
+      <FrontendFiles Include="$(SpaRoot)dist\**\*.*" />
+    </ItemGroup>
+    <Copy
+      SourceFiles="@(FrontendFiles)"
+      DestinationFiles="@(FrontendFiles->'$(MSBuildProjectDirectory)\wwwroot\%(RecursiveDir)%(Filename)%(Extension)')"
+      SkipUnchangedFiles="true"
+    />
+  </Target>
 
 </Project>
