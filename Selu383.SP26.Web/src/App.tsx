@@ -63,10 +63,10 @@ const LOCATIONS = [
   { id:3, name:"Lakefront", addr:"789 Lake Shore Dr", city:"Mandeville, LA 70448", phone:"(985) 555-0103", hours:"Daily 7AM–9PM" },
 ];
 const USERS = [
-  { id:"c", email:"guest@lions.com", password:"guest123", role:"customer", name:"John", points:120,
+  { id:"c", email:"guest@lions.com", password:"Password123!", role:"customer", name:"John", points:120,
     lastOrder:{ id:"#1038", items:[{name:"Iced Latte",price:5.00},{name:"Croissant",price:3.25}], total:8.25, date:"Mar 15, 2026" }},
-  { id:"s", email:"staff@lions.com", password:"staff123", role:"staff",    name:"Sara", points:0, lastOrder:null },
-  { id:"a", email:"admin@lions.com", password:"admin123", role:"admin",    name:"Mike", points:0, lastOrder:null },
+  { id:"s", email:"staff@lions.com", password:"Password123!", role:"staff",    name:"Sara", points:0, lastOrder:null },
+  { id:"a", email:"admin@lions.com", password:"Password123!", role:"admin",    name:"Mike", points:0, lastOrder:null },
 ];
 const STATUS_NEXT  = { Pending:"Preparing", Preparing:"Ready", Ready:"Done" } as Record<string,string>;
 const STATUS_COLOR = { Pending:"#f59e0b", Preparing:"#3b82f6", Ready:"#16a34a", Done:"#9ca3af" } as Record<string,string>;
@@ -541,12 +541,73 @@ function GuestHome({ setPage: _setPage }:any) {
 // ── Login ─────────────────────────────────────────────────────────────
 function Login({ onLogin, setPage, mode }:any) {
   const T = useTheme();
-  const [email,setEmail]=useState(""); const [pass,setPass]=useState(""); const [err,setErr]=useState("");
+  const [email,setEmail]=useState("");
+  const [pass,setPass]=useState("");
+  const [err,setErr]=useState("");
+  const [name,setName]=useState("");   // 👈 ADD THIS
   const [isSignup,setIsSignup]=useState(mode==="signup");
-  const go=()=>{
-    const u=USERS.find(x=>x.email===email&&x.password===pass);
-    u?(setErr(""),onLogin(u)):setErr("Invalid credentials.");
+  
+  const go = async () => {
+  setErr("");
+  const roleMap: Record<string, string> = {
+    "admin": "admin",
+    "staff": "staff",
+    "customer": "customer",
+    "user": "customer",
   };
+  try {
+    if (isSignup) {
+      const res = await fetch("/api/authentication/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          userName: name,
+          email: email,
+          password: pass,
+        }),
+      });
+      if (!res.ok) {
+        const msg = await res.text();
+        setErr(msg || "Registration failed.");
+        return;
+      }
+      const apiUser = await res.json();
+      const mappedUser = {
+        ...apiUser,
+        role: roleMap[apiUser.roles?.[0]?.toLowerCase()] ?? "customer",
+        name: apiUser.userName,
+        email: apiUser.userName,
+        points: 0,
+        lastOrder: null,
+      };
+      onLogin(mappedUser);
+    } else {
+      const res = await fetch("/api/authentication/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ userName: email, password: pass }),
+      });
+      if (!res.ok) {
+        setErr("Invalid credentials.");
+        return;
+      }
+      const apiUser = await res.json();
+      const mappedUser = {
+        ...apiUser,
+        role: roleMap[apiUser.roles?.[0]?.toLowerCase()] ?? "customer",
+        name: apiUser.userName,
+        email: apiUser.userName,
+        points: 0,
+        lastOrder: null,
+      };
+      onLogin(mappedUser);
+    }
+  } catch (e) {
+    setErr("Network error. Please try again.");
+  }
+};
   return (
     <div style={{ minHeight:"100vh", background:T.bg, display:"flex", flexDirection:"column" as const, alignItems:"center", justifyContent:"center", padding:20 }}>
       <div style={{ textAlign:"center", marginBottom:24 }}>
@@ -555,7 +616,14 @@ function Login({ onLogin, setPage, mode }:any) {
         <div style={{ color:T.subtext, fontSize:12, marginTop:4 }}>{isSignup?"Create your account":"Sign in to continue"}</div>
       </div>
       <div style={{ background:T.card, borderRadius:14, padding:28, width:"100%", maxWidth:360, border:`1px solid ${T.border}` }}>
-        {isSignup && <input placeholder="Full Name" style={{ width:"100%", background:T.inputBg, border:`1px solid ${T.inputBorder}`, borderRadius:8, padding:"13px 14px", color:T.inputText, fontSize:14, marginBottom:10, boxSizing:"border-box" as const }} />}
+        {isSignup && (
+  <input
+    value={name}
+    onChange={e => setName(e.target.value)}
+    placeholder="Full Name"
+    style={{ width:"100%", background:T.inputBg, border:`1px solid ${T.inputBorder}`, borderRadius:8, padding:"13px 14px", color:T.inputText, fontSize:14, marginBottom:10, boxSizing:"border-box" as const }}
+  />
+)}
         <input value={email} onChange={e=>setEmail(e.target.value)} placeholder="Email"
           style={{ width:"100%", background:T.inputBg, border:`1px solid ${T.inputBorder}`, borderRadius:8, padding:"13px 14px", color:T.inputText, fontSize:14, boxSizing:"border-box" as const }} />
         <input value={pass} onChange={e=>setPass(e.target.value)} placeholder="Password" type="password"
