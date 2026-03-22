@@ -31,7 +31,7 @@ public static class SeedHelper
         var guest = new User { UserName = "guest@lions.com", Email = "guest@lions.com" };
         var guestResult = await userManager.CreateAsync(guest, "Password123!");
         if (!guestResult.Succeeded) throw new Exception(string.Join(", ", guestResult.Errors.Select(e => e.Description)));
-        await userManager.AddToRoleAsync(guest, RoleNames.Customer);
+        await userManager.AddToRoleAsync(guest, RoleNames.User );
 
         var staff = new User { UserName = "staff@lions.com", Email = "staff@lions.com" };
         var staffResult = await userManager.CreateAsync(staff, "Password123!");
@@ -54,7 +54,6 @@ public static class SeedHelper
 
         await roleManager.CreateAsync(new Role { Name = RoleNames.Admin });
         await roleManager.CreateAsync(new Role { Name = RoleNames.User });
-        await roleManager.CreateAsync(new Role { Name = RoleNames.Customer });
         await roleManager.CreateAsync(new Role { Name = RoleNames.Staff });
     }
 
