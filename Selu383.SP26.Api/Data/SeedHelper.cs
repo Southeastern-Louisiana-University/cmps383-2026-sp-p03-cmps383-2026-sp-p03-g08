@@ -28,17 +28,20 @@ public static class SeedHelper
             return;
         }
 
-        var adminUser = new User { UserName = "galkadi" };
-        await userManager.CreateAsync(adminUser, defaultPassword);
-        await userManager.AddToRoleAsync(adminUser, RoleNames.Admin);
+        var guest = new User { UserName = "guest@lions.com", Email = "guest@lions.com" };
+        var guestResult = await userManager.CreateAsync(guest, "Password123!");
+        if (!guestResult.Succeeded) throw new Exception(string.Join(", ", guestResult.Errors.Select(e => e.Description)));
+        await userManager.AddToRoleAsync(guest, RoleNames.Customer);
 
-        var bob = new User { UserName = "bob" };
-        await userManager.CreateAsync(bob, defaultPassword);
-        await userManager.AddToRoleAsync(bob, RoleNames.User);
+        var staff = new User { UserName = "staff@lions.com", Email = "staff@lions.com" };
+        var staffResult = await userManager.CreateAsync(staff, "Password123!");
+        if (!staffResult.Succeeded) throw new Exception(string.Join(", ", staffResult.Errors.Select(e => e.Description)));
+        await userManager.AddToRoleAsync(staff, RoleNames.Staff);
 
-        var sue = new User { UserName = "sue" };
-        await userManager.CreateAsync(sue, defaultPassword);
-        await userManager.AddToRoleAsync(sue, RoleNames.User);
+        var admin = new User { UserName = "admin@lions.com", Email = "admin@lions.com" };
+        var adminResult = await userManager.CreateAsync(admin, "Password123!");
+        if (!adminResult.Succeeded) throw new Exception(string.Join(", ", adminResult.Errors.Select(e => e.Description)));
+        await userManager.AddToRoleAsync(admin, RoleNames.Admin);
     }
 
     private static async Task AddRoles(IServiceProvider serviceProvider)
@@ -51,6 +54,8 @@ public static class SeedHelper
 
         await roleManager.CreateAsync(new Role { Name = RoleNames.Admin });
         await roleManager.CreateAsync(new Role { Name = RoleNames.User });
+        await roleManager.CreateAsync(new Role { Name = RoleNames.Customer });
+        await roleManager.CreateAsync(new Role { Name = RoleNames.Staff });
     }
 
     private static async Task AddLocations(DataContext dataContext)
