@@ -91,7 +91,7 @@ public class AuthenticationController : ControllerBase
         }
 
         // Assign a default role (adjust role name to match your project)
-        await userManager.AddToRoleAsync(user, "Guest");
+        await userManager.AddToRoleAsync(user, RoleNames.User);
 
         await signInManager.SignInAsync(user, isPersistent: false);
 
