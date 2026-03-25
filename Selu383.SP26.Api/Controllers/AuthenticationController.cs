@@ -98,26 +98,4 @@ public class AuthenticationController : ControllerBase
         var resultDto = await GetUserDto(userManager.Users).SingleAsync(x => x.UserName == user.UserName);
         return Ok(resultDto);
         }
-
-    [HttpPost("seed-prod-users")]
-    public async Task<ActionResult> SeedProdUsers()
-    {   
-        var accounts = new[]
-        {
-            new { UserName = "guest@lions.com", Email = "guest@lions.com", Role = RoleNames.User },
-            new { UserName = "staff@lions.com", Email = "staff@lions.com", Role = RoleNames.Staff },
-            new { UserName = "admin@lions.com", Email = "admin@lions.com", Role = RoleNames.Admin },
-        };
-
-        foreach (var account in accounts)
-        {
-            if (await userManager.FindByNameAsync(account.UserName) != null) continue;
-            var user = new User { UserName = account.UserName, Email = account.Email };
-            var result = await userManager.CreateAsync(user, "Password123!");
-            if (result.Succeeded)
-                await userManager.AddToRoleAsync(user, account.Role);
-        }
-
-        return Ok("Done");
-    }
 }
