@@ -594,13 +594,14 @@ function Login({ onLogin, setPage, mode }:any) {
         return;
       }
       const apiUser = await res.json();
+      const localUser = USERS.find(u => u.email === email);
       const mappedUser = {
         ...apiUser,
-        role: roleMap[apiUser.roles?.[0]?.toLowerCase()] ?? "customer",
-        name: apiUser.userName,
+        role: localUser?.role ?? roleMap[apiUser.roles?.[0]?.toLowerCase()] ?? "customer",
+        name: localUser?.name ?? apiUser.userName,
         email: apiUser.userName,
-        points: 0,
-        lastOrder: null,
+        points: localUser?.points ?? 0,
+        lastOrder: localUser?.lastOrder ?? null,
       };
       onLogin(mappedUser);
     }
