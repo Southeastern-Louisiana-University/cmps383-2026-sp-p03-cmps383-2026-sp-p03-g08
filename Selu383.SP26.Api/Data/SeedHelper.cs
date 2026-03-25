@@ -47,15 +47,14 @@ public static class SeedHelper
     private static async Task AddRoles(IServiceProvider serviceProvider)
     {
         var roleManager = serviceProvider.GetRequiredService<RoleManager<Role>>();
+        if (roleManager.Roles.Any())
+        {
+            return;
+        }
 
-        if (!roleManager.Roles.Any(r => r.Name == RoleNames.Admin))
-            await roleManager.CreateAsync(new Role { Name = RoleNames.Admin });
-
-        if (!roleManager.Roles.Any(r => r.Name == RoleNames.User))
-            await roleManager.CreateAsync(new Role { Name = RoleNames.User });
-
-        if (!roleManager.Roles.Any(r => r.Name == RoleNames.Staff))
-            await roleManager.CreateAsync(new Role { Name = RoleNames.Staff });
+        await roleManager.CreateAsync(new Role { Name = RoleNames.Admin });
+        await roleManager.CreateAsync(new Role { Name = RoleNames.User });
+        await roleManager.CreateAsync(new Role { Name = RoleNames.Staff });
     }
 
     private static async Task AddLocations(DataContext dataContext)
