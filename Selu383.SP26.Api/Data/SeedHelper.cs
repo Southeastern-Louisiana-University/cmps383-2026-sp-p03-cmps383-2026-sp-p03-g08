@@ -13,9 +13,17 @@ public static class SeedHelper
 
         await dataContext.Database.MigrateAsync();
 
-        await AddRoles(serviceProvider);
-        await AddUsers(serviceProvider);
-        await AddLocations(dataContext);
+        try
+        {
+            await AddRoles(serviceProvider);
+            await AddUsers(serviceProvider);
+            await AddLocations(dataContext);
+        }
+        catch (Exception ex)
+        {
+            var logger = serviceProvider.GetRequiredService<ILogger<DataContext>>();
+            logger.LogError(ex, "Seeding failed but app will continue.");
+        }
     }
 
     private static async Task AddUsers(IServiceProvider serviceProvider)
