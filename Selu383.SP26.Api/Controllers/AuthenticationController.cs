@@ -59,16 +59,6 @@ public class AuthenticationController : ControllerBase
         return Ok();
     }
 
-    private static IQueryable<UserDto> GetUserDto(IQueryable<User> users)
-    {
-        return users.Select(x => new UserDto
-        {
-            Id = x.Id,
-            UserName = x.UserName!,
-            Roles = x.UserRoles.Select(y => y.Role!.Name).ToArray()!
-        });
-    }
-
     [HttpPost("register")]
     public async Task<ActionResult<UserDto>> Register(RegisterDto dto)
     {
@@ -98,5 +88,35 @@ public class AuthenticationController : ControllerBase
 
         var resultDto = await GetUserDto(userManager.Users).SingleAsync(x => x.UserName == user.UserName);
         return Ok(resultDto);
+    }
+
+    [HttpPost("fix-roles")]
+    public async Task<ActionResult> FixRoles()
+    {
+        var staffUser = await userManager.FindByNameAsync("staff@lions.com");
+        if (staffUser != null && !await userManager.IsInRoleAsync(staffUser, RoleNames.Staff))
+        {
+            await userManager.RemoveFromRoleAsync(staffUser, RoleNames.User);
+            await userManager.AddToRoleAsync(staffUser, RoleNames.Staff);
+        }
+
+        var adminUser = await userManager.FindByNameAsync("admin@lions.com");
+        if (adminUser != null && !await userManager.IsInRoleAsync(adminUser, RoleNames.Admin))
+        {
+            await userManager.RemoveFromRoleAsync(adminUser, RoleNames.User);
+            await userManager.AddToRoleAsync(adminUser, RoleNames.Admin);
+        }
+
+        return Ok("Done");
+    }
+
+    private static IQueryable<UserDto> GetUserDto(IQueryable<User> users)
+    {
+        return users.Select(x => new UserDto
+        {
+            Id = x.Id,
+            UserName = x.UserName!,
+            Roles = x.UserRoles.Select(y => y.Role!.Name).ToArray()!
+        });
     }
 }
