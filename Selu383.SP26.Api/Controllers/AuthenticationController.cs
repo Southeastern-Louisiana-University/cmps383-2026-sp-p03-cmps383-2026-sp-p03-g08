@@ -91,11 +91,12 @@ public class AuthenticationController : ControllerBase
         }
 
         // Assign a default role (adjust role name to match your project)
-        await userManager.AddToRoleAsync(user, RoleNames.User);
 
+        await userManager.AddToRoleAsync(user, RoleNames.User);
+        
         await signInManager.SignInAsync(user, isPersistent: false);
 
         var resultDto = await GetUserDto(userManager.Users).SingleAsync(x => x.UserName == user.UserName);
         return Ok(resultDto);
-        }
+    }
 }
