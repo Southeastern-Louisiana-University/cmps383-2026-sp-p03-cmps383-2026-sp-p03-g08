@@ -29,17 +29,17 @@ public static class SeedHelper
         }
 
         var guest = new User { UserName = "guest@lions.com", Email = "guest@lions.com" };
-        var guestResult = await userManager.CreateAsync(guest, "Password123!");
+        var guestResult = await userManager.CreateAsync(guest, defaultPassword);
         if (!guestResult.Succeeded) throw new Exception(string.Join(", ", guestResult.Errors.Select(e => e.Description)));
-        await userManager.AddToRoleAsync(guest, RoleNames.User );
+        await userManager.AddToRoleAsync(guest, RoleNames.User);
 
         var staff = new User { UserName = "staff@lions.com", Email = "staff@lions.com" };
-        var staffResult = await userManager.CreateAsync(staff, "Password123!");
+        var staffResult = await userManager.CreateAsync(staff, defaultPassword);
         if (!staffResult.Succeeded) throw new Exception(string.Join(", ", staffResult.Errors.Select(e => e.Description)));
         await userManager.AddToRoleAsync(staff, RoleNames.Staff);
 
         var admin = new User { UserName = "admin@lions.com", Email = "admin@lions.com" };
-        var adminResult = await userManager.CreateAsync(admin, "Password123!");
+        var adminResult = await userManager.CreateAsync(admin, defaultPassword);
         if (!adminResult.Succeeded) throw new Exception(string.Join(", ", adminResult.Errors.Select(e => e.Description)));
         await userManager.AddToRoleAsync(admin, RoleNames.Admin);
     }
@@ -47,19 +47,19 @@ public static class SeedHelper
     private static async Task AddRoles(IServiceProvider serviceProvider)
     {
         var roleManager = serviceProvider.GetRequiredService<RoleManager<Role>>();
-        if (roleManager.Roles.Any())
-        {
-            return;
-        }
 
-        await roleManager.CreateAsync(new Role { Name = RoleNames.Admin });
-        await roleManager.CreateAsync(new Role { Name = RoleNames.User });
-        await roleManager.CreateAsync(new Role { Name = RoleNames.Staff });
+        if (!roleManager.Roles.Any(r => r.Name == RoleNames.Admin))
+            await roleManager.CreateAsync(new Role { Name = RoleNames.Admin });
+
+        if (!roleManager.Roles.Any(r => r.Name == RoleNames.User))
+            await roleManager.CreateAsync(new Role { Name = RoleNames.User });
+
+        if (!roleManager.Roles.Any(r => r.Name == RoleNames.Staff))
+            await roleManager.CreateAsync(new Role { Name = RoleNames.Staff });
     }
 
     private static async Task AddLocations(DataContext dataContext)
     {
-        // ✅ Check if locations already exist before seeding
         if (dataContext.Set<Location>().Any())
         {
             return;
