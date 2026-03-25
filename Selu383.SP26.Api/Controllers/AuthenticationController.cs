@@ -105,7 +105,7 @@ public class AuthenticationController : ControllerBase
         var accounts = new[]
         {
             new { UserName = "guest@lions.com", Email = "guest@lions.com", Role = RoleNames.User },
-            new { UserName = "staff@lions.com", Email = "staff@lions.com", Role = RoleNames.Staff },
+            nnew { UserName = "staff@lions.com", Email = "staff@lions.com", Role = "Staff" },
             new { UserName = "admin@lions.com", Email = "admin@lions.com", Role = RoleNames.Admin },
         };
 
