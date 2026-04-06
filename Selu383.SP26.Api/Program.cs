@@ -44,14 +44,15 @@ var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
 {
-    await SeedHelper.MigrateAndSeed(scope.ServiceProvider);
-}
-
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
+    try
+    {
+        await SeedHelper.MigrateAndSeed(scope.ServiceProvider);
+    }
+    catch (Exception ex)
+    {
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "Migration/seed failed but app will continue.");
+    }
 }
 
 app.UseHttpsRedirection();
