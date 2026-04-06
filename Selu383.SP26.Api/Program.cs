@@ -16,7 +16,9 @@ builder.Services.AddDbContext<DataContext>(options =>
                 errorNumbersToAdd: null
             );
         }
-    ));
+    )
+    .ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning))
+);
 
 builder.Services.AddIdentity<User, Role>()
     .AddEntityFrameworkStores<DataContext>();
