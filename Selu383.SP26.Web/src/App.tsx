@@ -578,7 +578,7 @@ function Login({ onLogin, setPage, mode }:any) {
         role: roleMap[apiUser.roles?.[0]?.toLowerCase()] ?? "customer",
         name: apiUser.userName,
         email: apiUser.userName,
-        points: 0,
+        points: apiUser.points ?? 0,
         lastOrder: null,
       };
       onLogin(mappedUser);
@@ -600,7 +600,7 @@ function Login({ onLogin, setPage, mode }:any) {
         role: localUser?.role ?? roleMap[apiUser.roles?.[0]?.toLowerCase()] ?? "customer",
         name: localUser?.name ?? apiUser.userName,
         email: apiUser.userName,
-        points: localUser?.points ?? 0,
+        points: apiUser.points ?? localUser?.points ?? 0,
         lastOrder: localUser?.lastOrder ?? null,
       };
       onLogin(mappedUser);
