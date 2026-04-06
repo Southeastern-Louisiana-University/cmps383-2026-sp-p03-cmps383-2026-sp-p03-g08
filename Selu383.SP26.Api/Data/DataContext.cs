@@ -15,6 +15,7 @@ public class DataContext : IdentityDbContext<User, Role, int, IdentityUserClaim<
     }
 
     public DbSet<Location> Locations { get; set; }
+    public DbSet<UserPoints> UserPoints { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
