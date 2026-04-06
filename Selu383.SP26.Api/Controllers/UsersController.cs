@@ -55,4 +55,27 @@ public class UsersController : ControllerBase
             UserName = newUser.UserName,
         });
     }
-}
+    
+    [HttpGet("points")]
+    [Authorize]
+    public async Task<ActionResult<int>> GetPoints()
+    {
+        var userName = User.Identity!.Name;
+        var user = await userManager.FindByNameAsync(userName!);
+        if (user == null) return NotFound();
+        return Ok(user.Points);
+    }
+
+    [HttpPost("points/add")]
+    [Authorize]
+    public async Task<ActionResult<int>> AddPoints([FromBody] int points)
+    {
+        var userName = User.Identity!.Name;
+        var user = await userManager.FindByNameAsync(userName!);
+        if (user == null) return NotFound();
+        user.Points += points;
+        await userManager.UpdateAsync(user);
+        return Ok(user.Points);
+    }
+    }
+
