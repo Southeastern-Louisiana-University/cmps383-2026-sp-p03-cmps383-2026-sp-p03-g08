@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Selu383.SP26.Api.Features.Auth;
+using Microsoft.EntityFrameworkCore;
+using Selu383.SP26.Api.Data;
 
 namespace Selu383.SP26.Api.Controllers;
 
@@ -11,10 +13,12 @@ namespace Selu383.SP26.Api.Controllers;
 public class UsersController : ControllerBase
 {
     private readonly UserManager<User> userManager;
+    private readonly DataContext dbContext;
 
-    public UsersController(UserManager<User> userManager)
+    public UsersController(UserManager<User> userManager, DataContext dbContext)
     {
         this.userManager = userManager;
+        this.dbContext = dbContext;
     }
 
     [HttpPost]
@@ -55,7 +59,7 @@ public class UsersController : ControllerBase
             UserName = newUser.UserName,
         });
     }
-    
+
     [HttpGet("points")]
     [Authorize]
     public async Task<ActionResult<int>> GetPoints()
@@ -63,7 +67,9 @@ public class UsersController : ControllerBase
         var userName = User.Identity!.Name;
         var user = await userManager.FindByNameAsync(userName!);
         if (user == null) return NotFound();
-        return Ok(user.Points);
+
+        var userPoints = await dbContext.UserPoints.FirstOrDefaultAsync(x => x.UserId == user.Id);
+        return Ok(userPoints?.Points ?? 0);
     }
 
     [HttpPost("points/add")]
@@ -73,9 +79,21 @@ public class UsersController : ControllerBase
         var userName = User.Identity!.Name;
         var user = await userManager.FindByNameAsync(userName!);
         if (user == null) return NotFound();
-        user.Points += points;
-        await userManager.UpdateAsync(user);
-        return Ok(user.Points);
+
+        var userPoints = await dbContext.UserPoints.FirstOrDefaultAsync(x => x.UserId == user.Id);
+        if (userPoints == null)
+        {
+            userPoints = new UserPoints { UserId = user.Id, Points = points };
+            dbContext.UserPoints.Add(userPoints);
+        }
+        else
+        {
+            userPoints.Points += points;
+        }
+
+        await dbContext.SaveChangesAsync();
+        return Ok(userPoints.Points);
     }
-    }
+}
+
 
