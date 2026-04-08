@@ -544,7 +544,7 @@ function Login({ onLogin, setPage, mode }:any) {
   const [email,setEmail]=useState("");
   const [pass,setPass]=useState("");
   const [err,setErr]=useState("");
-  const [name,setName]=useState("");   // 👈 ADD THIS
+  const [name,setName]=useState("");   
   const [isSignup,setIsSignup]=useState(mode==="signup");
   
   const go = async () => {
@@ -573,13 +573,19 @@ function Login({ onLogin, setPage, mode }:any) {
         return;
       }
       const apiUser = await res.json();
+      const localUser = USERS.find(u => u.email === email);
+
+      // Fetch real points from backend
+      const pointsRes = await fetch("/api/users/points", { credentials: "include" });
+      const realPoints = pointsRes.ok ? await pointsRes.json() : 0;
+
       const mappedUser = {
         ...apiUser,
-        role: roleMap[apiUser.roles?.[0]?.toLowerCase()] ?? "customer",
-        name: apiUser.userName,
+        role: localUser?.role ?? roleMap[apiUser.roles?.[0]?.toLowerCase()] ?? "customer",
+        name: localUser?.name ?? apiUser.userName,
         email: apiUser.userName,
-        points: apiUser.points ?? 0,
-        lastOrder: null,
+        points: realPoints,
+        lastOrder: localUser?.lastOrder ?? null,
       };
       onLogin(mappedUser);
     } else {
@@ -595,12 +601,14 @@ function Login({ onLogin, setPage, mode }:any) {
       }
       const apiUser = await res.json();
       const localUser = USERS.find(u => u.email === email);
+      const pointsRes = await fetch("/api/users/points", { credentials: "include" });
+      const realPoints = pointsRes.ok ? await pointsRes.json() : 0;
       const mappedUser = {
         ...apiUser,
         role: localUser?.role ?? roleMap[apiUser.roles?.[0]?.toLowerCase()] ?? "customer",
         name: localUser?.name ?? apiUser.userName,
         email: apiUser.userName,
-        points: apiUser.points ?? localUser?.points ?? 0,
+        points: realPoints,
         lastOrder: localUser?.lastOrder ?? null,
       };
       onLogin(mappedUser);
@@ -718,12 +726,38 @@ function CustomerApp({ user, setUser, page, setPage }:any) {
   const shown = filter==="Popular" ? [...MENU].sort((a,b)=>b.orders-a.orders) : MENU.filter(m=>m.cat===filter);
   const total = cart.reduce((s:number,i:any)=>s+i.price,0);
 
-  const placeOrder = () => {
-    if(!cart.length) return;
-    const o = { id:"#"+(1040+Math.floor(Math.random()*100)), items:cart, total, date:new Date().toLocaleDateString() };
-    setReceipt(o); setCart([]); setShowCart(false);
-    setUser((u:any)=>({ ...u, points:u.points+Math.floor(total*10), lastOrder:o }));
-  };
+  const placeOrder = async () => {
+  if(!cart.length) return;
+  try {
+    const res = await fetch("/api/orders", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
+        items: cart.map(i => ({ name: i.name, price: i.price })),
+        total: total
+      })
+    });
+    if (!res.ok) return;
+    const order = await res.json();
+
+    // Update points from backend
+    const pointsRes = await fetch("/api/users/points", { credentials: "include" });
+    const newPoints = await pointsRes.json();
+
+    setReceipt({ 
+      id: `#${order.id}`, 
+      items: order.items, 
+      total: order.total, 
+      date: new Date().toLocaleDateString() 
+    });
+    setCart([]);
+    setShowCart(false);
+    setUser((u:any) => ({ ...u, points: newPoints, lastOrder: { id: `#${order.id}`, items: order.items, total: order.total, date: new Date().toLocaleDateString() } }));
+  } catch(e) {
+    console.error("Order failed", e);
+  }
+};
 
   const pb = isMobile ? 80 : 0;
 
@@ -903,8 +937,27 @@ function StaffApp() {
   const T = useTheme();
   const isMobile = useIsMobile();
   const [tab,setTab]       = useState("orders");
-  const [orders,setOrders] = useState(INIT_ORDERS);
-  const advance = (id:string) => setOrders(o=>o.map((x:any)=>x.id===id&&STATUS_NEXT[x.status]?{...x,status:STATUS_NEXT[x.status]}:x));
+  const [orders,setOrders] = useState<any[]>([]);
+
+useEffect(() => {
+  fetch("/api/orders", { credentials: "include" })
+    .then(r => r.json())
+    .then(setOrders)
+    .catch(console.error);
+}, []);
+  const advance = async (id:number) => {
+    const order = orders.find((o:any) => o.id === id);
+    if (!order) return;
+    const nextStatus = STATUS_NEXT[order.status];
+    if (!nextStatus) return;
+    await fetch(`/api/orders/${id}/status`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(nextStatus)
+    });
+    setOrders(o => o.map((x:any) => x.id===id ? {...x, status:nextStatus} : x));
+  };
   return (
     <div style={{ background:T.bg, minHeight:"100vh" }}>
       {!isMobile && (
@@ -921,7 +974,10 @@ function StaffApp() {
             {orders.filter((o:any)=>o.status!=="Done").map((o:any)=>(
               <Card key={o.id} style={{ padding:16, marginBottom:12 }}>
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap" as const, gap:8 }}>
-                  <div><div style={{ fontWeight:800, fontSize:14, color:T.text }}>{o.id} — {o.items}</div><div style={{ color:T.subtext, fontSize:12 }}>{o.table} · {o.time}</div></div>
+                  <div>
+                    <div style={{ fontWeight:800, fontSize:14, color:T.text }}>#{o.id} — {o.items.map((i:any)=>i.name).join(", ")}</div>
+                    <div style={{ color:T.subtext, fontSize:12 }}>👤 {o.userName} · ${o.total.toFixed(2)} · {new Date(o.createdAt).toLocaleTimeString()}</div>
+                  </div>
                   <div style={{ display:"flex", gap:8, alignItems:"center" }}>
                     <span style={{ background:STATUS_COLOR[o.status], color:"#fff", fontSize:10, fontWeight:800, padding:"3px 10px", borderRadius:20 }}>{o.status}</span>
                     {STATUS_NEXT[o.status]&&<button onClick={()=>advance(o.id)} style={{ ...btn("#2563eb"), padding:"6px 12px", fontSize:11 }}>→ {STATUS_NEXT[o.status]}</button>}
