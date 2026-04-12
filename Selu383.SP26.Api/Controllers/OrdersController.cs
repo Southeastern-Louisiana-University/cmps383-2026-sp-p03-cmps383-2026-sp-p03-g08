@@ -28,16 +28,19 @@ public class OrdersController : ControllerBase
         var user = await userManager.FindByNameAsync(User.Identity!.Name!);
         if (user == null) return Unauthorized();
 
+        var location = await dbContext.Locations.FindAsync(dto.LocationId);
+        if (location == null) return BadRequest("Invalid location.");
+
         var order = new Order
         {
             UserId = user.Id,
+            LocationId = dto.LocationId,
             Total = dto.Total,
             Items = dto.Items.Select(i => new OrderItem { Name = i.Name, Price = i.Price }).ToList()
         };
 
         dbContext.Orders.Add(order);
 
-        // Add points
         var userPoints = await dbContext.UserPoints.FirstOrDefaultAsync(x => x.UserId == user.Id);
         if (userPoints == null)
         {
@@ -50,7 +53,6 @@ public class OrdersController : ControllerBase
         }
 
         await dbContext.SaveChangesAsync();
-
         return Ok(await GetOrderDto(order.Id));
     }
 
@@ -70,6 +72,8 @@ public class OrdersController : ControllerBase
                 Id = o.Id,
                 UserId = o.UserId,
                 UserName = user.UserName!,
+                LocationId = o.LocationId,
+                LocationName = dbContext.Locations.Where(l => l.Id == o.LocationId).Select(l => l.Name).FirstOrDefault() ?? "",
                 CreatedAt = o.CreatedAt,
                 Total = o.Total,
                 Status = o.Status,
@@ -87,11 +91,13 @@ public class OrdersController : ControllerBase
         var orders = await dbContext.Orders
             .Include(o => o.Items)
             .OrderByDescending(o => o.CreatedAt)
-            .Join(dbContext.Users, o => o.UserId, u => u.Id, (o, u) => new OrderDto
+            .Select(o => new OrderDto
             {
                 Id = o.Id,
                 UserId = o.UserId,
-                UserName = u.UserName!,
+                UserName = dbContext.Users.Where(u => u.Id == o.UserId).Select(u => u.UserName).FirstOrDefault() ?? "",
+                LocationId = o.LocationId,
+                LocationName = dbContext.Locations.Where(l => l.Id == o.LocationId).Select(l => l.Name).FirstOrDefault() ?? "",
                 CreatedAt = o.CreatedAt,
                 Total = o.Total,
                 Status = o.Status,
@@ -117,16 +123,19 @@ public class OrdersController : ControllerBase
     {
         return await dbContext.Orders
             .Include(o => o.Items)
-            .Join(dbContext.Users, o => o.UserId, u => u.Id, (o, u) => new OrderDto
+            .Where(o => o.Id == orderId)
+            .Select(o => new OrderDto
             {
                 Id = o.Id,
                 UserId = o.UserId,
-                UserName = u.UserName!,
+                UserName = dbContext.Users.Where(u => u.Id == o.UserId).Select(u => u.UserName).FirstOrDefault() ?? "",
+                LocationId = o.LocationId,
+                LocationName = dbContext.Locations.Where(l => l.Id == o.LocationId).Select(l => l.Name).FirstOrDefault() ?? "",
                 CreatedAt = o.CreatedAt,
                 Total = o.Total,
                 Status = o.Status,
                 Items = o.Items.Select(i => new OrderItemDto { Name = i.Name, Price = i.Price }).ToList()
             })
-            .FirstAsync(o => o.Id == orderId);
+            .FirstAsync();
     }
 }

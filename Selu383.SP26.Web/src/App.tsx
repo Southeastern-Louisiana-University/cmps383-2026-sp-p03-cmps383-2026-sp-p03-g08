@@ -734,6 +734,7 @@ function CustomerApp({ user, setUser, page, setPage }:any) {
       headers: { "Content-Type": "application/json" },
       credentials: "include",
       body: JSON.stringify({
+        locationId: 1,
         items: cart.map(i => ({ name: i.name, price: i.price })),
         total: total
       })
