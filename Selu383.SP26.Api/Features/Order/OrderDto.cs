@@ -5,6 +5,8 @@ public class OrderDto
     public int Id { get; set; }
     public int UserId { get; set; }
     public string UserName { get; set; } = string.Empty;
+    public int LocationId { get; set; }
+    public string LocationName { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
     public decimal Total { get; set; }
     public string Status { get; set; } = string.Empty;
@@ -19,6 +21,7 @@ public class OrderItemDto
 
 public class CreateOrderDto
 {
+    public int LocationId { get; set; }
     public List<OrderItemDto> Items { get; set; } = new();
     public decimal Total { get; set; }
 }
