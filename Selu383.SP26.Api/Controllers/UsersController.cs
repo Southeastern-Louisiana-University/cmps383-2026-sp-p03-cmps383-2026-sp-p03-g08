@@ -108,6 +108,28 @@ public class UsersController : ControllerBase
 
         return Ok();
     }
+
+    [HttpPost("fix-prod-roles")]
+    public async Task<ActionResult> FixProdRoles()
+    {
+        var staffUser = await userManager.FindByNameAsync("staff@lions.com");
+        if (staffUser != null)
+        {
+            var staffRoles = await userManager.GetRolesAsync(staffUser);
+            await userManager.RemoveFromRolesAsync(staffUser, staffRoles);
+            await userManager.AddToRoleAsync(staffUser, RoleNames.Staff);
+        }
+
+        var adminUser = await userManager.FindByNameAsync("admin@lions.com");
+        if (adminUser != null)
+        {
+            var adminRoles = await userManager.GetRolesAsync(adminUser);
+            await userManager.RemoveFromRolesAsync(adminUser, adminRoles);
+            await userManager.AddToRoleAsync(adminUser, RoleNames.Admin);
+        }
+
+        return Ok("Done");
+    }
 }
 
 
