@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Selu383.SP26.Api.Features.Auth;
 using Selu383.SP26.Api.Features.Locations;
 using System.Data;
+using Selu383.SP26.Api.Features.Orders;
 
 namespace Selu383.SP26.Api.Data;
 
@@ -15,6 +16,9 @@ public class DataContext : IdentityDbContext<User, Role, int, IdentityUserClaim<
     }
 
     public DbSet<Location> Locations { get; set; }
+    public DbSet<UserPoints> UserPoints { get; set; }
+    public DbSet<Order> Orders { get; set; }
+    public DbSet<OrderItem> OrderItems { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

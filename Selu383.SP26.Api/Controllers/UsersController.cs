@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Selu383.SP26.Api.Features.Auth;
+using Microsoft.EntityFrameworkCore;
+using Selu383.SP26.Api.Data;
 
 namespace Selu383.SP26.Api.Controllers;
 
@@ -11,10 +13,12 @@ namespace Selu383.SP26.Api.Controllers;
 public class UsersController : ControllerBase
 {
     private readonly UserManager<User> userManager;
+    private readonly DataContext dbContext;
 
-    public UsersController(UserManager<User> userManager)
+    public UsersController(UserManager<User> userManager, DataContext dbContext)
     {
         this.userManager = userManager;
+        this.dbContext = dbContext;
     }
 
     [HttpPost]
@@ -55,4 +59,78 @@ public class UsersController : ControllerBase
             UserName = newUser.UserName,
         });
     }
+
+    [HttpGet("points")]
+    [Authorize]
+    public async Task<ActionResult<int>> GetPoints()
+    {
+        var userName = User.Identity!.Name;
+        var user = await userManager.FindByNameAsync(userName!);
+        if (user == null) return NotFound();
+
+        var userPoints = await dbContext.UserPoints.FirstOrDefaultAsync(x => x.UserId == user.Id);
+        return Ok(userPoints?.Points ?? 0);
+    }
+
+    [HttpPost("points/add")]
+    [Authorize]
+    public async Task<ActionResult<int>> AddPoints([FromBody] int points)
+    {
+        var userName = User.Identity!.Name;
+        var user = await userManager.FindByNameAsync(userName!);
+        if (user == null) return NotFound();
+
+        var userPoints = await dbContext.UserPoints.FirstOrDefaultAsync(x => x.UserId == user.Id);
+        if (userPoints == null)
+        {
+            userPoints = new UserPoints { UserId = user.Id, Points = points };
+            dbContext.UserPoints.Add(userPoints);
+        }
+        else
+        {
+            userPoints.Points += points;
+        }
+
+        await dbContext.SaveChangesAsync();
+        return Ok(userPoints.Points);
+    }
+
+    [HttpPost("{userName}/roles")]
+    [Authorize(Roles = RoleNames.Admin)]
+    public async Task<ActionResult> SetRole(string userName, [FromBody] string role)
+    {
+        var user = await userManager.FindByNameAsync(userName);
+        if (user == null) return NotFound();
+
+        var currentRoles = await userManager.GetRolesAsync(user);
+        await userManager.RemoveFromRolesAsync(user, currentRoles);
+        await userManager.AddToRoleAsync(user, role);
+
+        return Ok();
+    }
+    
+    [HttpPost("fix-prod-roles")]
+    public async Task<ActionResult> FixProdRoles()
+    {
+        var staffUser = await userManager.FindByNameAsync("staff@lions.com");
+        if (staffUser != null)
+        {
+            var staffRoles = await userManager.GetRolesAsync(staffUser);
+            await userManager.RemoveFromRolesAsync(staffUser, staffRoles);
+            await userManager.AddToRoleAsync(staffUser, RoleNames.Staff);
+        }
+
+        var adminUser = await userManager.FindByNameAsync("admin@lions.com");
+        if (adminUser != null)
+        {
+            var adminRoles = await userManager.GetRolesAsync(adminUser);
+            await userManager.RemoveFromRolesAsync(adminUser, adminRoles);
+            await userManager.AddToRoleAsync(adminUser, RoleNames.Admin);
+        }
+
+        return Ok("Done");
+    }
+
 }
+
+

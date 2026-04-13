@@ -65,7 +65,39 @@ public class AuthenticationController : ControllerBase
         {
             Id = x.Id,
             UserName = x.UserName!,
-            Roles = x.UserRoles.Select(y => y.Role!.Name).ToArray()!
+            Roles = x.UserRoles.Select(y => y.Role!.Name).ToArray()!,
+            Points = 0
         });
+    }
+
+    [HttpPost("register")]
+    public async Task<ActionResult<UserDto>> Register(RegisterDto dto)
+    {
+        var existingUser = await userManager.FindByNameAsync(dto.UserName);
+        if (existingUser != null)
+        {
+            return BadRequest("Username already taken.");
+        }
+
+        var user = new User
+        {
+            UserName = dto.UserName,
+            Email = dto.Email
+        };
+
+        var result = await userManager.CreateAsync(user, dto.Password);
+        if (!result.Succeeded)
+        {
+            return BadRequest(result.Errors.Select(e => e.Description));
+        }
+
+        // Assign a default role (adjust role name to match your project)
+
+        await userManager.AddToRoleAsync(user, RoleNames.User);
+        
+        await signInManager.SignInAsync(user, isPersistent: false);
+
+        var resultDto = await GetUserDto(userManager.Users).SingleAsync(x => x.UserName == user.UserName);
+        return Ok(resultDto);
     }
 }

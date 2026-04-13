@@ -16,7 +16,9 @@ builder.Services.AddDbContext<DataContext>(options =>
                 errorNumbersToAdd: null
             );
         }
-    ));
+    )
+    .ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning))
+);
 
 builder.Services.AddIdentity<User, Role>()
     .AddEntityFrameworkStores<DataContext>();
@@ -44,14 +46,17 @@ var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
 {
-    await SeedHelper.MigrateAndSeed(scope.ServiceProvider);
-}
-
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
+    try
+    {
+        var dataContext = scope.ServiceProvider.GetRequiredService<DataContext>();
+        await dataContext.Database.MigrateAsync();
+        await SeedHelper.MigrateAndSeed(scope.ServiceProvider);
+    }
+    catch (Exception ex)
+    {
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "Migration/seed failed but app will continue.");
+    }
 }
 
 app.UseHttpsRedirection();
