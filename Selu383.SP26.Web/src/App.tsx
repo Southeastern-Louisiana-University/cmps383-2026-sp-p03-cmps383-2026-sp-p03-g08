@@ -719,6 +719,8 @@ function CustomerApp({ user, setUser, page, setPage }:any) {
   const [filter,setFilter]   = useState("Popular");
   const [reserved,setRes]    = useState<number|null>(null);
   const [showCart,setShowCart] = useState(false);
+  const [selectedLocation, setSelectedLocation] = useState<any>(null);
+  const [showLocationPicker, setShowLocationPicker] = useState(false);
 
   useEffect(()=>{ if(page==="rewards") setTab("rewards"); },[page]);
 
@@ -728,24 +730,28 @@ function CustomerApp({ user, setUser, page, setPage }:any) {
 
   const placeOrder = async () => {
   if(!cart.length) return;
+  if(!selectedLocation) {
+    setShowLocationPicker(true);
+    return;
+  }
   try {
     const res = await fetch("/api/orders", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
       body: JSON.stringify({
-        locationId: 1,
+        locationId: selectedLocation.id,
         items: cart.map(i => ({ name: i.name, price: i.price })),
         total: total
       })
     });
-    if (!res.ok) return;
+    if (!res.ok) {
+      console.error("Order failed:", await res.text());
+      return;
+    }
     const order = await res.json();
-
-    // Update points from backend
     const pointsRes = await fetch("/api/users/points", { credentials: "include" });
     const newPoints = await pointsRes.json();
-
     setReceipt({ 
       id: `#${order.id}`, 
       items: order.items, 
@@ -765,6 +771,25 @@ function CustomerApp({ user, setUser, page, setPage }:any) {
   return (
     <div style={{ background:T.bg, minHeight:"100vh" }}>
       {receipt && <Receipt order={receipt} onClose={()=>setReceipt(null)} />}
+        {showLocationPicker && (
+          <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.75)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:999, padding:20 }}>
+            <div style={{ background:T.card, borderRadius:16, padding:24, width:"100%", maxWidth:400, color:T.text }}>
+              <div style={{ fontWeight:900, fontSize:18, marginBottom:6 }}>📍 Select a Location</div>
+              <div style={{ color:T.subtext, fontSize:13, marginBottom:16 }}>Choose where you'd like to pick up your order</div>
+              {LOCATIONS.map(loc => (
+                <div key={loc.id} onClick={() => { setSelectedLocation(loc); setShowLocationPicker(false); }}
+                  style={{ background:selectedLocation?.id===loc.id?gold:T.surface2, borderRadius:12, padding:"14px 16px", marginBottom:10, cursor:"pointer", border:`2px solid ${selectedLocation?.id===loc.id?gold:T.border}` }}>
+                  <div style={{ fontWeight:800, fontSize:14, color:selectedLocation?.id===loc.id?"#fff":T.text }}>{loc.name}</div>
+                  <div style={{ fontSize:12, color:selectedLocation?.id===loc.id?"#fff":T.subtext }}>{loc.addr}, {loc.city}</div>
+                </div>
+              ))}
+              {selectedLocation && (
+                <button onClick={() => setShowLocationPicker(false)} style={{ ...btn(gold), width:"100%", padding:"13px 0", marginTop:4 }}>Confirm Location</button>
+              )}
+              <button onClick={() => setShowLocationPicker(false)} style={{ ...btn(T.surface2, T.subtext), width:"100%", padding:"11px 0", marginTop:8 }}>Cancel</button>
+            </div>
+          </div>
+        )}
 
       {/* Cart Drawer (Mobile) */}
       {isMobile && showCart && (
@@ -803,6 +828,16 @@ function CustomerApp({ user, setUser, page, setPage }:any) {
           </div>
         </div>
       )}
+
+      {/* Location Selector Bar */}
+      <div style={{ background:T.surface, borderBottom:`1px solid ${T.border}`, padding:"8px 16px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+        <span style={{ fontSize:12, color:T.subtext }}>
+          {selectedLocation ? `📍 ${selectedLocation.name} — ${selectedLocation.addr}` : "📍 No location selected"}
+        </span>
+        <button onClick={() => setShowLocationPicker(true)} style={{ ...btn(gold), padding:"5px 12px", fontSize:11 }}>
+          {selectedLocation ? "Change" : "Select"}
+        </button>
+      </div>
 
       {/* Desktop Tab Bar */}
       {!isMobile && (
@@ -977,7 +1012,7 @@ useEffect(() => {
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap" as const, gap:8 }}>
                   <div>
                     <div style={{ fontWeight:800, fontSize:14, color:T.text }}>#{o.id} — {o.items.map((i:any)=>i.name).join(", ")}</div>
-                    <div style={{ color:T.subtext, fontSize:12 }}>👤 {o.userName} · ${o.total.toFixed(2)} · {new Date(o.createdAt).toLocaleTimeString()}</div>
+                    <div style={{ color:T.subtext, fontSize:12 }}>👤 {o.userName} · 📍 {o.locationName} · ${o.total.toFixed(2)} · {new Date(o.createdAt).toLocaleTimeString()}</div>
                   </div>
                   <div style={{ display:"flex", gap:8, alignItems:"center" }}>
                     <span style={{ background:STATUS_COLOR[o.status], color:"#fff", fontSize:10, fontWeight:800, padding:"3px 10px", borderRadius:20 }}>{o.status}</span>
