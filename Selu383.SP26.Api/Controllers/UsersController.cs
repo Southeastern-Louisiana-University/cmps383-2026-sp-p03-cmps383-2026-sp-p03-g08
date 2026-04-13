@@ -94,6 +94,20 @@ public class UsersController : ControllerBase
         await dbContext.SaveChangesAsync();
         return Ok(userPoints.Points);
     }
+
+    [HttpPost("{userName}/roles")]
+    [Authorize(Roles = RoleNames.Admin)]
+    public async Task<ActionResult> SetRole(string userName, [FromBody] string role)
+    {
+        var user = await userManager.FindByNameAsync(userName);
+        if (user == null) return NotFound();
+
+        var currentRoles = await userManager.GetRolesAsync(user);
+        await userManager.RemoveFromRolesAsync(user, currentRoles);
+        await userManager.AddToRoleAsync(user, role);
+
+        return Ok();
+    }
 }
 
 
