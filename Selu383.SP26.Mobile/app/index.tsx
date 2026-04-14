@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import {
   View, Text, ScrollView, TouchableOpacity, TextInput, Image,
   StyleSheet, Dimensions, StatusBar, Modal, Platform, Animated,
-  Switch, Alert
+  Switch
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -1120,7 +1120,6 @@ function AdminApp({ user, onLogout, isDark, setIsDark, sharedOrders, setSharedOr
   const toggle  = (id:number) => setMenu(m=>m.map(x=>x.id===id?{...x,popular:!x.popular}:x));
   const advance = (id:string) => setSharedOrders((o:any[])=>o.map((x:any)=>x.id===id&&STATUS_NEXT[x.status]?{...x,status:STATUS_NEXT[x.status]}:x));
 
-  // All live — no hardcoded values
   const filteredOrders = selLoc===0 ? sharedOrders : sharedOrders.filter((o:any)=>o.location===LOCATIONS[selLoc-1]?.name);
   const totalRev       = filteredOrders.reduce((s:number,o:any)=>s+(o.total||0),0);
   const dtCount        = filteredOrders.filter((o:any)=>o.type==="drive-thru").length;
@@ -1144,7 +1143,6 @@ function AdminApp({ user, onLogout, isDark, setIsDark, sharedOrders, setSharedOr
 
       <ScrollView style={{ flex:1 }} contentContainerStyle={{ padding:16, paddingBottom:100, backgroundColor:T.bg }}>
 
-        {/* Location filter */}
         {showLocFilter && (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom:16 }}>
             {["All Locations",...LOCATIONS.map(l=>l.name)].map((l,i)=>(
@@ -1174,7 +1172,6 @@ function AdminApp({ user, onLogout, isDark, setIsDark, sharedOrders, setSharedOr
               ))}
             </View>
 
-            {/* Top Sellers */}
             <Card style={{ padding:16, marginBottom:14 }} T={T}>
               <Text style={{ fontWeight:"800", fontSize:14, color:T.text, marginBottom:12 }}>🔥 Top Sellers</Text>
               {sellers.length===0
@@ -1193,7 +1190,6 @@ function AdminApp({ user, onLogout, isDark, setIsDark, sharedOrders, setSharedOr
               }
             </Card>
 
-            {/* Revenue by Location */}
             <Card style={{ padding:16 }} T={T}>
               <Text style={{ fontWeight:"800", fontSize:14, color:T.text, marginBottom:12 }}>📍 Revenue by Location</Text>
               {sharedOrders.length===0
