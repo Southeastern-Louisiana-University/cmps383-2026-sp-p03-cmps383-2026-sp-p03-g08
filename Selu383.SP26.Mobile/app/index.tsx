@@ -10,8 +10,8 @@ const { width } = Dimensions.get("window");
 const accent = "#fcd34d";
 const gold   = "#C8973A";
 
-const logoImg = require("../assets/logo.png");
-const heroImg = require("../assets/hero.jpg");
+const logoImg = require("../assets/logo/logo.png");
+const heroImg = require("../assets/logo/hero.jpg");
 
 // ── Theme ─────────────────────────────────────────────────────────────
 function getTheme(isDark: boolean) {
