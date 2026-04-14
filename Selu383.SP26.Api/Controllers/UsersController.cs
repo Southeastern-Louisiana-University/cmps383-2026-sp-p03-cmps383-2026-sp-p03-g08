@@ -21,6 +21,65 @@ public class UsersController : ControllerBase
         this.dbContext = dbContext;
     }
 
+    [HttpGet]
+    [Authorize(Roles = RoleNames.Admin)]
+    public async Task<ActionResult<List<UserDto>>> GetAll()
+    {
+        var users = await userManager.Users
+            .Include(u => u.UserRoles)
+            .ThenInclude(ur => ur.Role)
+            .ToListAsync();
+
+        var result = new List<UserDto>();
+        foreach (var user in users)
+        {
+            var points = await dbContext.UserPoints.FirstOrDefaultAsync(x => x.UserId == user.Id);
+            result.Add(new UserDto
+            {
+                Id = user.Id,
+                UserName = user.UserName!,
+                Roles = user.UserRoles.Select(ur => ur.Role.Name!).ToArray(),
+                Points = points?.Points ?? 0,
+            });
+        }
+
+        return Ok(result);
+    }
+
+    [HttpGet("{id}")]
+    [Authorize(Roles = RoleNames.Admin)]
+    public async Task<ActionResult<UserDto>> GetById(int id)
+    {
+        var user = await userManager.Users
+            .Include(u => u.UserRoles)
+            .ThenInclude(ur => ur.Role)
+            .FirstOrDefaultAsync(u => u.Id == id);
+
+        if (user == null) return NotFound();
+
+        var points = await dbContext.UserPoints.FirstOrDefaultAsync(x => x.UserId == user.Id);
+        return Ok(new UserDto
+        {
+            Id = user.Id,
+            UserName = user.UserName!,
+            Roles = user.UserRoles.Select(ur => ur.Role.Name!).ToArray(),
+            Points = points?.Points ?? 0,
+        });
+    }
+
+    [HttpDelete("{id}")]
+    [Authorize(Roles = RoleNames.Admin)]
+    public async Task<ActionResult> Delete(int id)
+    {
+        var user = await userManager.FindByIdAsync(id.ToString());
+        if (user == null) return NotFound();
+
+        var result = await userManager.DeleteAsync(user);
+        if (!result.Succeeded) return BadRequest();
+
+        return Ok();
+    }
+
     [HttpPost]
     [Authorize(Roles = RoleNames.Admin)]
     public async Task<ActionResult<UserDto>> Create(CreateUserDto dto)
@@ -110,6 +169,7 @@ public class UsersController : ControllerBase
     }
     
     [HttpPost("fix-prod-roles")]
+    [Authorize(Roles = RoleNames.Admin)]
     public async Task<ActionResult> FixProdRoles()
     {
         var staffUser = await userManager.FindByNameAsync("staff@lions.com");
