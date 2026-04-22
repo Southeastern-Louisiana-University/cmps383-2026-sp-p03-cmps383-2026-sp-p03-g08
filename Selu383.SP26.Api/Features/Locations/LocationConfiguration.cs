@@ -12,6 +12,8 @@ public class LocationConfiguration : IEntityTypeConfiguration<Location>
             .HasMaxLength(120);
 
         builder.Property(x => x.Settings)
-            .HasJsonConversion();
+            .HasConversion(
+                v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions)null),
+                v => System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, bool>>(v, (System.Text.Json.JsonSerializerOptions)null));
     }
 }
