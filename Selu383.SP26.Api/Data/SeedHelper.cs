@@ -42,6 +42,11 @@ public static class SeedHelper
         var adminResult = await userManager.CreateAsync(admin, defaultPassword);
         if (!adminResult.Succeeded) throw new Exception(string.Join(", ", adminResult.Errors.Select(e => e.Description)));
         await userManager.AddToRoleAsync(admin, RoleNames.Admin);
+
+        var manager = new User { UserName = "manager@lions.com", Email = "manager@lions.com" };
+        var managerResult = await userManager.CreateAsync(manager, defaultPassword);
+        if (!managerResult.Succeeded) throw new Exception(string.Join(", ", managerResult.Errors.Select(e => e.Description)));
+        await userManager.AddToRoleAsync(manager, RoleNames.Manager);
     }
 
     private static async Task AddRoles(IServiceProvider serviceProvider)
@@ -56,6 +61,9 @@ public static class SeedHelper
 
         if (!roleManager.Roles.Any(r => r.Name == RoleNames.Staff))
             await roleManager.CreateAsync(new Role { Name = RoleNames.Staff });
+        
+        if (!roleManager.Roles.Any(r => r.Name == RoleNames.Manager))
+            await roleManager.CreateAsync(new Role { Name = RoleNames.Manager });
     }
 
     private static async Task AddLocations(DataContext dataContext)
