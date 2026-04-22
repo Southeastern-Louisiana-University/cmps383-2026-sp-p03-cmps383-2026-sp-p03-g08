@@ -21,6 +21,8 @@ public class MenuController(DataContext dataContext) : ControllerBase
                 Name = x.Name,
                 Price = x.Price,
                 Description = x.Description,
+                IsPopular = x.IsPopular,
+                IsEnabled = x.IsEnabled,
             })
             .ToListAsync();
     }
@@ -37,6 +39,8 @@ public class MenuController(DataContext dataContext) : ControllerBase
             Name = item.Name,
             Price = item.Price,
             Description = item.Description,
+            IsPopular = item.IsPopular,
+            IsEnabled = item.IsEnabled,
         });
     }
 
@@ -49,6 +53,8 @@ public class MenuController(DataContext dataContext) : ControllerBase
             Name = dto.Name,
             Price = dto.Price,
             Description = dto.Description,
+            IsPopular = dto.IsPopular,
+            IsEnabled = dto.IsEnabled,
         };
 
         dataContext.MenuItems.Add(item);
@@ -68,11 +74,37 @@ public class MenuController(DataContext dataContext) : ControllerBase
         item.Name = dto.Name;
         item.Price = dto.Price;
         item.Description = dto.Description;
+        item.IsPopular = dto.IsPopular;
+        item.IsEnabled = dto.IsEnabled;
 
         await dataContext.SaveChangesAsync();
 
         dto.Id = item.Id;
         return Ok(dto);
+    }
+
+    [HttpPatch("{id}/popular")]
+    [Authorize(Roles = RoleNames.Admin)]
+    public async Task<ActionResult> SetPopular(int id, [FromBody] bool isPopular)
+    {
+        var item = await dataContext.MenuItems.FindAsync(id);
+        if (item == null) return NotFound();
+
+        item.IsPopular = isPopular;
+        await dataContext.SaveChangesAsync();
+        return Ok();
+    }
+
+    [HttpPatch("{id}/enabled")]
+    [Authorize(Roles = RoleNames.Admin)]
+    public async Task<ActionResult> SetEnabled(int id, [FromBody] bool isEnabled)
+    {
+        var item = await dataContext.MenuItems.FindAsync(id);
+        if (item == null) return NotFound();
+
+        item.IsEnabled = isEnabled;
+        await dataContext.SaveChangesAsync();
+        return Ok();
     }
 
     [HttpDelete("{id}")]

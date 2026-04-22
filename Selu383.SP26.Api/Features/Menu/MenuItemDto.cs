@@ -17,4 +17,8 @@ public class MenuItemDto
     [Required]
     [MaxLength(500)]
     public string Description { get; set; } = string.Empty;
+
+    public bool IsPopular { get; set; }
+
+    public bool IsEnabled { get; set; } = true;
 }

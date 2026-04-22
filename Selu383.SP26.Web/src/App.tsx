@@ -537,7 +537,20 @@ function Login({ onLogin, setPage, mode }:any) {
   const T = useTheme();
   const [email,setEmail]=useState(""); const [pass,setPass]=useState(""); const [err,setErr]=useState("");
   const [isSignup,setIsSignup]=useState(mode==="signup");
-  const go=()=>{ const u=USERS.find(x=>x.email===email&&x.password===pass); u?(setErr(""),onLogin(u)):setErr("Invalid credentials."); };
+  const roleMap: Record<string,string> = { Admin:"admin", Staff:"staff", User:"customer" };
+  const go = async () => {
+    try {
+      const res = await fetch("/api/authentication/login", {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({ userName: email, password: pass }),
+      });
+      if (!res.ok) { setErr("Invalid credentials."); return; }
+      const data = await res.json();
+      const role = roleMap[data.roles?.[0]] ?? "customer";
+      setErr("");
+      onLogin({ id: data.id, email: data.userName, role, name: data.userName, points: data.points ?? 0, location: 0 });
+    } catch { setErr("Connection error."); }
+  };
   return (
     <div style={{ minHeight:"100vh", background:T.bg, display:"flex", flexDirection:"column" as const, alignItems:"center", justifyContent:"center", padding:20 }}>
       <div style={{ height:4, background:`linear-gradient(90deg,${accent},${gold})`, position:"fixed", top:0, left:0, right:0 }} />
@@ -1048,34 +1061,68 @@ function StaffApp({ user, page, setPage, sharedOrders, setSharedOrders }:any) {
   );
 }
 
-function AdminApp({ sharedOrders, setSharedOrders, page }:any) {
+function AdminApp({ page }:any) {
   const T = useTheme();
   const isMobile = useIsMobile();
-  const [menu,setMenu]     = useState(MENU);
-  const [selLoc,setSelLoc] = useState(0);
+  const [apiOrders, setApiOrders] = useState<any[]>([]);
+  const [menu,      setMenu]      = useState<any[]>([]);
+  const [staffList, setStaffList] = useState<any[]>([]);
+  const [locations, setLocations] = useState<any[]>([]);
+  const [selLoc,    setSelLoc]    = useState(0);
   const days = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
 
-  const toggle  = (id:number) => setMenu(m=>m.map(x=>x.id===id?{...x,popular:!x.popular}:x));
-  const advance = (id:string) => setSharedOrders((o:any[])=>o.map((x:any)=>x.id===id&&STATUS_NEXT[x.status]?{...x,status:STATUS_NEXT[x.status]}:x));
+  useEffect(() => {
+    fetch("/api/orders").then(r=>r.ok?r.json():Promise.reject()).then(setApiOrders).catch(()=>setApiOrders([]));
+    fetch("/api/menu").then(r=>r.ok?r.json():Promise.reject()).then(setMenu).catch(()=>setMenu([]));
+    fetch("/api/users").then(r=>r.ok?r.json():Promise.reject()).then(setStaffList).catch(()=>setStaffList([]));
+    fetch("/api/locations").then(r=>r.ok?r.json():Promise.reject()).then(setLocations).catch(()=>setLocations([]));
+  }, []);
 
-  // ── All computed live, no hardcoded values ─────────────────────────
-  const filteredOrders = selLoc===0 ? sharedOrders : sharedOrders.filter((o:any)=>o.location===LOCATIONS[selLoc-1]?.name);
+  const locNames       = locations.map((l:any)=>l.name);
+  const filteredOrders = selLoc===0 ? apiOrders : apiOrders.filter((o:any)=>o.locationName===locNames[selLoc-1]);
   const todayIdx       = new Date().getDay()===0 ? 6 : new Date().getDay()-1;
   const totalRev       = filteredOrders.reduce((s:number,o:any)=>s+(o.total||0),0);
-  const dtCount        = filteredOrders.filter((o:any)=>o.type==="drive-thru").length;
-  const tablesActive   = filteredOrders.filter((o:any)=>o.type==="dine-in"&&o.status!=="Done").length;
-  const hist           = [20,23,38,55,61,78,95];
-  const dayData        = hist.map((v:number,i:number)=>i===todayIdx ? Math.max(sharedOrders.length,1) : v);
-  const maxDay         = Math.max(...dayData,1);
-  const revenueByLoc   = LOCATIONS.map(l=>({ name:l.name, rev:sharedOrders.filter((o:any)=>o.location===l.name).reduce((s:number,o:any)=>s+(o.total||0),0) }));
-  const maxLocRev      = Math.max(...revenueByLoc.map(l=>l.rev),1);
-  const itemCounts:Record<string,number> = {};
-  sharedOrders.forEach((o:any)=>o.items.forEach((it:any)=>{ itemCounts[it.name]=(itemCounts[it.name]||0)+1; }));
-  const topItems = Object.entries(itemCounts).sort((a,b)=>b[1]-a[1]).slice(0,4);
-  const sellers  = topItems.map(([name,cnt])=>({name,cnt:cnt as number}));
-  const maxSell  = sellers.length>0 ? sellers[0].cnt : 1;
+  const ordersToday    = filteredOrders.filter((o:any)=>{
+    const d=new Date(o.createdAt), n=new Date();
+    return d.getFullYear()===n.getFullYear()&&d.getMonth()===n.getMonth()&&d.getDate()===n.getDate();
+  }).length;
 
-  // location filter bar — shown on dashboard, orders, staff
+  const now=new Date(), dowNow=now.getDay()===0?6:now.getDay()-1;
+  const weekStart=new Date(now); weekStart.setDate(now.getDate()-dowNow); weekStart.setHours(0,0,0,0);
+  const dayData = days.map((_,i)=>
+    apiOrders.filter((o:any)=>{ const d=new Date(o.createdAt); return (d.getDay()===0?6:d.getDay()-1)===i && d>=weekStart; }).length
+  );
+  const maxDay = Math.max(...dayData,1);
+
+  const revenueByLoc = locations.map((l:any)=>({
+    name:l.name, rev:apiOrders.filter((o:any)=>o.locationName===l.name).reduce((s:number,o:any)=>s+(o.total||0),0)
+  }));
+  const maxLocRev = Math.max(...revenueByLoc.map((l:any)=>l.rev),1);
+
+  const itemCounts:Record<string,number>={};
+  apiOrders.forEach((o:any)=>o.items.forEach((it:any)=>{ itemCounts[it.name]=(itemCounts[it.name]||0)+1; }));
+  const sellers = Object.entries(itemCounts).sort((a,b)=>b[1]-a[1]).slice(0,4).map(([name,cnt])=>({name,cnt:cnt as number}));
+  const maxSell = sellers.length>0?sellers[0].cnt:1;
+
+  const staffMembers = staffList.filter((u:any)=>u.roles?.some((r:string)=>r==="Staff"||r==="Admin"));
+
+  const advanceOrder = async (id:number, next:string) => {
+    await fetch(`/api/orders/${id}/status`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(next)});
+    setApiOrders(os=>os.map((o:any)=>o.id===id?{...o,status:next}:o));
+  };
+  const togglePopular = async (id:number, cur:boolean) => {
+    await fetch(`/api/menu/${id}/popular`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify(!cur)});
+    setMenu(m=>m.map((x:any)=>x.id===id?{...x,isPopular:!cur}:x));
+  };
+  const toggleEnabled = async (id:number, cur:boolean) => {
+    await fetch(`/api/menu/${id}/enabled`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify(!cur)});
+    setMenu(m=>m.map((x:any)=>x.id===id?{...x,isEnabled:!cur}:x));
+  };
+  const toggleLocSetting = async (loc:any, field:string, val:boolean) => {
+    await fetch(`/api/locations/${loc.id}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({...loc,[field]:val})});
+    setLocations(ls=>ls.map((l:any)=>l.id===loc.id?{...l,[field]:val}:l));
+  };
+
   const showLocFilter = ["dashboard","orders","staff"].includes(page);
 
   return (
@@ -1084,7 +1131,7 @@ function AdminApp({ sharedOrders, setSharedOrders, page }:any) {
         {showLocFilter && (
           <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:20, flexWrap:"wrap" as const }}>
             <span style={{ color:T.subtext, fontSize:13, fontWeight:700 }}>📍 Viewing:</span>
-            {["All Locations",...LOCATIONS.map(l=>l.name)].map((l,i)=>(
+            {["All Locations",...locNames].map((l:string,i:number)=>(
               <button key={i} onClick={()=>setSelLoc(i)} style={{ ...btn(selLoc===i?accent:T.surface2, selLoc===i?"#111":T.subtext), padding:"6px 14px", fontSize:12, borderRadius:20, fontWeight:selLoc===i?800:500 }}>{l}</button>
             ))}
           </div>
@@ -1092,13 +1139,13 @@ function AdminApp({ sharedOrders, setSharedOrders, page }:any) {
 
           {page==="dashboard" && (
             <div>
-              <h2 style={{ fontWeight:900, fontSize:18, color:T.text, marginBottom:16 }}>📊 Overview — {selLoc===0?"All Locations":LOCATIONS[selLoc-1].name}</h2>
+              <h2 style={{ fontWeight:900, fontSize:18, color:T.text, marginBottom:16 }}>📊 Overview — {selLoc===0?"All Locations":locNames[selLoc-1]}</h2>
               <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)", gap:isMobile?10:14, marginBottom:20 }}>
                 {[
-                  {l:"Orders Today",  v:filteredOrders.length,      i:"📦"},
-                  {l:"Revenue",       v:"$"+totalRev.toFixed(0),    i:"💰"},
-                  {l:"Tables Active", v:tablesActive+" active",     i:"🪑"},
-                  {l:"Drive-Thru",    v:dtCount,                    i:"🚗"},
+                  {l:"Orders Today", v:ordersToday,             i:"📦"},
+                  {l:"Revenue",      v:"$"+totalRev.toFixed(0), i:"💰"},
+                  {l:"Total Orders", v:filteredOrders.length,   i:"📋"},
+                  {l:"Locations",    v:locations.length,        i:"📍"},
                 ].map((s,i)=>(
                   <Card key={i} style={{ padding:isMobile?14:20, textAlign:"center" }}>
                     <div style={{ fontSize:isMobile?24:28 }}>{s.i}</div>
@@ -1109,18 +1156,15 @@ function AdminApp({ sharedOrders, setSharedOrders, page }:any) {
               </div>
               <Card style={{ padding:isMobile?14:20, marginBottom:16 }}>
                 <div style={{ fontWeight:800, fontSize:14, color:T.text, marginBottom:16 }}>📅 Orders by Day This Week</div>
-                {sharedOrders.length===0
-                  ? <div style={{ textAlign:"center", color:T.subtext, padding:"20px 0", fontSize:13 }}>No orders yet — data appears here as customers order</div>
-                  : <div style={{ display:"flex", alignItems:"flex-end", gap:8, height:120, padding:"0 4px" }}>
-                      {days.map((d,i)=>(
-                        <div key={i} style={{ flex:1, display:"flex", flexDirection:"column" as const, alignItems:"center", gap:4 }}>
-                          <div style={{ color:T.subtext, fontSize:10 }}>{dayData[i]}</div>
-                          <div style={{ width:"100%", background:i===todayIdx?accent:"#4b5563", borderRadius:"4px 4px 0 0", height:`${(dayData[i]/maxDay)*90}%`, minHeight:4, transition:"height .3s" }} />
-                          <div style={{ color:i===todayIdx?accent:T.subtext, fontSize:11, fontWeight:i===todayIdx?800:400 }}>{d}</div>
-                        </div>
-                      ))}
+                <div style={{ display:"flex", alignItems:"flex-end", gap:8, height:120, padding:"0 4px" }}>
+                  {days.map((d,i)=>(
+                    <div key={i} style={{ flex:1, display:"flex", flexDirection:"column" as const, alignItems:"center", gap:4 }}>
+                      <div style={{ color:T.subtext, fontSize:10 }}>{dayData[i]}</div>
+                      <div style={{ width:"100%", background:i===todayIdx?accent:"#4b5563", borderRadius:"4px 4px 0 0", height:`${(dayData[i]/maxDay)*90}%`, minHeight:4, transition:"height .3s" }} />
+                      <div style={{ color:i===todayIdx?accent:T.subtext, fontSize:11, fontWeight:i===todayIdx?800:400 }}>{d}</div>
                     </div>
-                }
+                  ))}
+                </div>
               </Card>
               <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 1fr", gap:14 }}>
                 <Card style={{ padding:isMobile?14:20 }}>
@@ -1137,7 +1181,7 @@ function AdminApp({ sharedOrders, setSharedOrders, page }:any) {
                 </Card>
                 <Card style={{ padding:isMobile?14:20 }}>
                   <div style={{ fontWeight:800, fontSize:14, color:T.text, marginBottom:12 }}>📍 Revenue by Location</div>
-                  {sharedOrders.length===0
+                  {revenueByLoc.length===0
                     ? <div style={{ color:T.subtext, fontSize:13, textAlign:"center", padding:"16px 0" }}>No orders yet</div>
                     : revenueByLoc.map((l,i)=>(
                       <div key={i} style={{ marginBottom:10 }}>
@@ -1154,15 +1198,16 @@ function AdminApp({ sharedOrders, setSharedOrders, page }:any) {
           {page==="menu" && (
             <div>
               <h2 style={{ fontWeight:900, fontSize:18, color:T.text, marginBottom:16 }}>🍽 Menu Management</h2>
-              {menu.map(item=>(
-                <Card key={item.id} style={{ display:"flex", alignItems:"center", gap:isMobile?10:14, padding:isMobile?12:14, marginBottom:10 }}>
-                  <img src={item.img} alt={item.name} style={{ width:44, height:44, borderRadius:10, objectFit:"cover", flexShrink:0 }} />
+              {menu.length===0
+                ? <div style={{ textAlign:"center", color:T.subtext, padding:40 }}>No menu items found</div>
+                : menu.map((item:any)=>(
+                <Card key={item.id} style={{ display:"flex", alignItems:"center", gap:isMobile?10:14, padding:isMobile?12:14, marginBottom:10, opacity:item.isEnabled?1:0.5 }}>
                   <div style={{ flex:1, minWidth:0 }}>
                     <div style={{ fontWeight:800, fontSize:isMobile?12:14, color:T.text }}>{item.name}</div>
-                    <div style={{ color:T.subtext, fontSize:11 }}>{item.cat} · ${item.price.toFixed(2)}</div>
+                    <div style={{ color:T.subtext, fontSize:11 }}>{item.description} · ${Number(item.price).toFixed(2)}</div>
                   </div>
-                  <button onClick={()=>toggle(item.id)} style={{ ...btn(item.popular?accent:T.surface2, item.popular?"#111":T.subtext), padding:"5px 10px", fontSize:10, whiteSpace:"nowrap" as const }}>{item.popular?"🔥 Popular":"Set Pop"}</button>
-                  <button style={{ background:"#fee2e2", color:"#dc2626", border:"none", borderRadius:8, padding:"5px 10px", fontSize:10, cursor:"pointer", fontWeight:700 }}>Disable</button>
+                  <button onClick={()=>togglePopular(item.id,item.isPopular)} style={{ ...btn(item.isPopular?accent:T.surface2, item.isPopular?"#111":T.subtext), padding:"5px 10px", fontSize:10, whiteSpace:"nowrap" as const }}>{item.isPopular?"🔥 Popular":"Set Pop"}</button>
+                  <button onClick={()=>toggleEnabled(item.id,item.isEnabled)} style={{ background:item.isEnabled?"#fee2e2":"#dcfce7", color:item.isEnabled?"#dc2626":"#16a34a", border:"none", borderRadius:8, padding:"5px 10px", fontSize:10, cursor:"pointer", fontWeight:700 }}>{item.isEnabled?"Disable":"Enable"}</button>
                 </Card>
               ))}
             </div>
@@ -1177,13 +1222,13 @@ function AdminApp({ sharedOrders, setSharedOrders, page }:any) {
                   <Card key={i} style={{ padding:isMobile?12:16, marginBottom:10 }}>
                     <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", flexWrap:"wrap" as const, gap:8 }}>
                       <div>
-                        <div style={{ fontWeight:900, fontSize:13, color:T.text }}>{o.customer} — {o.items.map((it:any)=>it.name).join(", ")}</div>
-                        <div style={{ color:T.subtext, fontSize:11 }}>{o.id} · {o.type} · 📍 {o.location} · {o.time}</div>
-                        {o.type==="drive-thru"&&<span style={{ background:accent, color:"#111", fontSize:10, fontWeight:800, padding:"1px 8px", borderRadius:20 }}>Code: {o.code}</span>}
+                        <div style={{ fontWeight:900, fontSize:13, color:T.text }}>{o.userName} — {o.items.map((it:any)=>it.name).join(", ")}</div>
+                        <div style={{ color:T.subtext, fontSize:11 }}>#{o.id} · 📍 {o.locationName} · {new Date(o.createdAt).toLocaleString()}</div>
+                        <div style={{ color:T.subtext, fontSize:11 }}>Total: ${Number(o.total).toFixed(2)}</div>
                       </div>
                       <div style={{ display:"flex", gap:8, alignItems:"center" }}>
-                        <span style={{ background:STATUS_COLOR[o.status], color:"#fff", fontSize:10, fontWeight:800, padding:"3px 10px", borderRadius:20 }}>{o.status}</span>
-                        {STATUS_NEXT[o.status]&&<button onClick={()=>advance(o.id)} style={{ ...btn("#2563eb"), padding:"6px 12px", fontSize:11 }}>→ {STATUS_NEXT[o.status]}</button>}
+                        <span style={{ background:STATUS_COLOR[o.status]||"#6b7280", color:"#fff", fontSize:10, fontWeight:800, padding:"3px 10px", borderRadius:20 }}>{o.status}</span>
+                        {STATUS_NEXT[o.status]&&<button onClick={()=>advanceOrder(o.id,STATUS_NEXT[o.status])} style={{ ...btn("#2563eb"), padding:"6px 12px", fontSize:11 }}>→ {STATUS_NEXT[o.status]}</button>}
                       </div>
                     </div>
                   </Card>
@@ -1197,28 +1242,46 @@ function AdminApp({ sharedOrders, setSharedOrders, page }:any) {
           {page==="staff" && (
             <div>
               <h2 style={{ fontWeight:900, fontSize:18, color:T.text, marginBottom:16 }}>👥 Staff</h2>
-              {STAFF_ROSTER.filter(s=>selLoc===0||s.loc===LOCATIONS[selLoc-1]?.name).map((s,i)=>(
+              {staffMembers.length===0
+                ? <div style={{ textAlign:"center", color:T.subtext, padding:40 }}>No staff found</div>
+                : staffMembers.map((s:any,i:number)=>(
                 <Card key={i} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:isMobile?12:16, marginBottom:10 }}>
                   <div style={{ display:"flex", alignItems:"center", gap:10 }}>
                     <div style={{ width:36, height:36, borderRadius:"50%", background:T.surface2, display:"flex", alignItems:"center", justifyContent:"center", fontSize:16, flexShrink:0 }}>👤</div>
-                    <div><div style={{ fontWeight:700, fontSize:13, color:T.text }}>{s.n}</div><div style={{ color:T.subtext, fontSize:11 }}>{s.role} · 📍 {s.loc}</div></div>
+                    <div>
+                      <div style={{ fontWeight:700, fontSize:13, color:T.text }}>{s.userName}</div>
+                      <div style={{ color:T.subtext, fontSize:11 }}>{s.roles?.join(", ")} · {s.points} pts</div>
+                    </div>
                   </div>
-                  <span style={{ background:s.status==="On Shift"?T.isDark?"#14291a":"#dcfce7":s.status==="Break"?"#fef3c7":T.surface2, color:s.status==="On Shift"?"#16a34a":s.status==="Break"?"#92400e":T.subtext, fontSize:11, fontWeight:700, padding:"4px 10px", borderRadius:20 }}>{s.status}</span>
                 </Card>
               ))}
             </div>
           )}
 
           {page==="settings" && (
-            <Card style={{ padding:isMobile?16:24 }}>
+            <div>
               <h2 style={{ fontWeight:900, fontSize:18, color:T.text, marginBottom:16 }}>⚙️ Settings</h2>
-              {[["Drive-Thru","Enabled"],["Table Reservations","Enabled"],["Online Ordering","Enabled"],["Rewards Program","Enabled"],["Loyalty Points","Enabled"]].map(([k,v],i)=>(
-                <div key={i} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"12px 0", borderBottom:`1px solid ${T.border}` }}>
-                  <span style={{ fontSize:14, color:T.text }}>{k}</span>
-                  <span style={{ background:v==="Enabled"?T.isDark?"#14291a":"#dcfce7":T.surface2, color:v==="Enabled"?"#16a34a":T.subtext, fontSize:11, fontWeight:700, padding:"4px 10px", borderRadius:20 }}>{v}</span>
-                </div>
+              {locations.length===0
+                ? <div style={{ textAlign:"center", color:T.subtext, padding:40 }}>Loading locations...</div>
+                : locations.map((loc:any)=>(
+                <Card key={loc.id} style={{ padding:isMobile?16:20, marginBottom:14 }}>
+                  <div style={{ fontWeight:800, fontSize:15, color:T.text, marginBottom:12 }}>📍 {loc.name}</div>
+                  {([
+                    {label:"Drive-Thru",        field:"driveThruEnabled",      value:loc.driveThruEnabled},
+                    {label:"Table Reservations", field:"reservationsEnabled",   value:loc.reservationsEnabled},
+                    {label:"Online Ordering",    field:"onlineOrderingEnabled", value:loc.onlineOrderingEnabled},
+                  ] as {label:string,field:string,value:boolean}[]).map(({label,field,value},i)=>(
+                    <div key={i} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 0", borderBottom:`1px solid ${T.border}` }}>
+                      <span style={{ fontSize:14, color:T.text }}>{label}</span>
+                      <button onClick={()=>toggleLocSetting(loc,field,value)}
+                        style={{ background:value?T.isDark?"#14291a":"#dcfce7":T.surface2, color:value?"#16a34a":T.subtext, border:`1px solid ${value?"#16a34a40":T.border}`, borderRadius:20, padding:"5px 16px", fontSize:11, fontWeight:700, cursor:"pointer" }}>
+                        {value?"✓ Enabled":"✗ Disabled"}
+                      </button>
+                    </div>
+                  ))}
+                </Card>
               ))}
-            </Card>
+            </div>
           )}
         </div>
       </div>
@@ -1289,7 +1352,10 @@ export default function App() {
   },[]);
 
   const handleLogin  = (u:any) => { setUser(u); navigate(u.role==="staff"||u.role==="manager"?"orders":u.role==="admin"?"dashboard":"menu"); };
-  const handleLogout = () => { setUser(null); setHistory([]); setPage("home"); window.history.pushState({page:"home"},"","#home"); };
+  const handleLogout = async () => {
+    try { await fetch("/api/authentication/logout", { method:"POST" }); } catch { /* ignore */ } // always log the user out locally, regardless of whether the server call succeeds
+    setUser(null); setHistory([]); setPage("home"); window.history.pushState({page:"home"},"","#home");
+  };
 
   const customerPages = ["menu","drive-thru","reservations","track","rewards","locations"];
   const staffPages    = ["orders","drive-thru","dashboard"];
@@ -1306,7 +1372,7 @@ export default function App() {
         {user && page==="home"       && <GuestHome setPage={navigate} />}
         {user?.role==="customer" && customerPages.includes(page) && <CustomerApp user={user} setUser={setUser} page={page} setPage={navigate} sharedOrders={sharedOrders} setSharedOrders={setSharedOrders} />}
         {(user?.role==="staff"||user?.role==="manager") && staffPages.includes(page) && <StaffApp user={user} page={page} setPage={navigate} sharedOrders={sharedOrders} setSharedOrders={setSharedOrders} />}
-        {user?.role==="admin" && <AdminApp sharedOrders={sharedOrders} setSharedOrders={setSharedOrders} page={page} />}
+        {user?.role==="admin" && <AdminApp page={page} />}
       </div>
     </ThemeContext.Provider>
   );

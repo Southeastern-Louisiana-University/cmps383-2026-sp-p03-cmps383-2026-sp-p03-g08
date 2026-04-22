@@ -23,6 +23,9 @@ public class LocationsController(DataContext dataContext) : ControllerBase
                 Address = x.Address,
                 TableCount = x.TableCount,
                 ManagerId = x.ManagerId,
+                DriveThruEnabled = x.DriveThruEnabled,
+                ReservationsEnabled = x.ReservationsEnabled,
+                OnlineOrderingEnabled = x.OnlineOrderingEnabled,
             });
     }
 
@@ -44,6 +47,9 @@ public class LocationsController(DataContext dataContext) : ControllerBase
             Address = result.Address,
             TableCount = result.TableCount,
             ManagerId = result.ManagerId,
+            DriveThruEnabled = result.DriveThruEnabled,
+            ReservationsEnabled = result.ReservationsEnabled,
+            OnlineOrderingEnabled = result.OnlineOrderingEnabled,
         });
     }
 
@@ -61,7 +67,10 @@ public class LocationsController(DataContext dataContext) : ControllerBase
             Name = dto.Name,
             Address = dto.Address,
             TableCount = dto.TableCount,
-            ManagerId = dto.ManagerId
+            ManagerId = dto.ManagerId,
+            DriveThruEnabled = dto.DriveThruEnabled,
+            ReservationsEnabled = dto.ReservationsEnabled,
+            OnlineOrderingEnabled = dto.OnlineOrderingEnabled,
         };
 
         dataContext.Set<Location>().Add(location);
@@ -98,6 +107,9 @@ public class LocationsController(DataContext dataContext) : ControllerBase
         location.Address = dto.Address;
         location.TableCount = dto.TableCount;
         location.ManagerId = dto.ManagerId;
+        location.DriveThruEnabled = dto.DriveThruEnabled;
+        location.ReservationsEnabled = dto.ReservationsEnabled;
+        location.OnlineOrderingEnabled = dto.OnlineOrderingEnabled;
 
         dataContext.SaveChanges();
 

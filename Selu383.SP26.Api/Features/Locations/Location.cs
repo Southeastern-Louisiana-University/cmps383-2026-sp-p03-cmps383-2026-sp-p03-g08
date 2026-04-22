@@ -14,4 +14,10 @@ public class Location
 
     public int? ManagerId { get; set; }
     public virtual User? Manager {  get; set; }
+
+    public bool DriveThruEnabled { get; set; } = true;
+
+    public bool ReservationsEnabled { get; set; } = true;
+
+    public bool OnlineOrderingEnabled { get; set; } = true;
 }

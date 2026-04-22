@@ -16,4 +16,10 @@ public class LocationDto
     public int TableCount { get; set; }
 
     public int? ManagerId { get; set; }
+
+    public bool DriveThruEnabled { get; set; } = true;
+
+    public bool ReservationsEnabled { get; set; } = true;
+
+    public bool OnlineOrderingEnabled { get; set; } = true;
 }
