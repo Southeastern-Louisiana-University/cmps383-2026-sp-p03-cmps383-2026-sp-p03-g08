@@ -14,4 +14,5 @@ public class Location
 
     public int? ManagerId { get; set; }
     public virtual User? Manager {  get; set; }
+    public Dictionary<string, bool> Settings { get; set; } = new();
 }

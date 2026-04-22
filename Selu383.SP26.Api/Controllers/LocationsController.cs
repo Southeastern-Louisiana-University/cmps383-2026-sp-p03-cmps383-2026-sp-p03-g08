@@ -23,6 +23,7 @@ public class LocationsController(DataContext dataContext) : ControllerBase
                 Address = x.Address,
                 TableCount = x.TableCount,
                 ManagerId = x.ManagerId,
+                Settings = x.Settings,
             });
     }
 
@@ -44,6 +45,7 @@ public class LocationsController(DataContext dataContext) : ControllerBase
             Address = result.Address,
             TableCount = result.TableCount,
             ManagerId = result.ManagerId,
+            Settings = result.Settings,
         });
     }
 
@@ -61,7 +63,8 @@ public class LocationsController(DataContext dataContext) : ControllerBase
             Name = dto.Name,
             Address = dto.Address,
             TableCount = dto.TableCount,
-            ManagerId = dto.ManagerId
+            ManagerId = dto.ManagerId,
+            Settings = dto.Settings,
         };
 
         dataContext.Set<Location>().Add(location);
@@ -98,6 +101,7 @@ public class LocationsController(DataContext dataContext) : ControllerBase
         location.Address = dto.Address;
         location.TableCount = dto.TableCount;
         location.ManagerId = dto.ManagerId;
+        location.Settings = dto.Settings;
 
         dataContext.SaveChanges();
 
