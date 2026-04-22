@@ -62,10 +62,10 @@ const LOCATIONS = [
 ];
 
 const USERS = [
-  { id:"c", email:"guest@lions.com",   password:"guest123",   role:"customer", name:"John",  points:1200, location:1, lastOrder:{ id:"#1038", items:[{name:"Iced Latte",price:5.00,customizations:{size:"Large",milk:"Oat Milk",temp:"Iced",sweet:"Normal",extras:[],notes:""}},{name:"Croissant",price:3.25,customizations:null}], total:8.25, date:"Mar 15, 2026" }},
-  { id:"s", email:"staff@lions.com",   password:"staff123",   role:"staff",    name:"Sara",  points:0,    location:1, lastOrder:null },
-  { id:"m", email:"manager@lions.com", password:"manager123", role:"manager",  name:"Mike",  points:0,    location:1, lastOrder:null },
-  { id:"a", email:"admin@lions.com",   password:"admin123",   role:"admin",    name:"Alex",  points:0,    location:0, lastOrder:null },
+  { id:"c", email:"guest@lions.com",   password:"Password123!", role:"customer", name:"John",  points:0, location:1, lastOrder:null },
+  { id:"s", email:"staff@lions.com",   password:"Password123!", role:"staff",    name:"Sara",  points:0, location:1, lastOrder:null },
+  { id:"m", email:"manager@lions.com", password:"Password123!", role:"manager",  name:"Mike",  points:0, location:1, lastOrder:null },
+  { id:"a", email:"admin@lions.com",   password:"Password123!", role:"admin",    name:"Alex",  points:0, location:0, lastOrder:null },
 ];
 
 const STATUS_NEXT  = { Pending:"Preparing", Preparing:"Ready", Ready:"Done" } as Record<string,string>;
@@ -84,7 +84,7 @@ const STAFF_ROSTER = [
 
 const ptsForSpend  = (amount: number) => Math.floor(amount * 10);
 const ptsToDollars = (pts: number) => (pts / 100).toFixed(2);
-const ptsCostFor   = (amount: number) => Math.ceil(amount * 100); // 100 pts = $1
+const ptsCostFor   = (amount: number) => Math.ceil(amount * 100);
 
 function Card({ children, style={}, onClick }:{ children:any, style?:React.CSSProperties, onClick?:()=>void }) {
   const T = useTheme();
@@ -230,7 +230,6 @@ function Receipt({ order, onClose }:any) {
         <div style={{ display:"flex", justifyContent:"space-between", fontSize:16, fontWeight:900, borderTop:`1px solid ${T.border}`, paddingTop:8, color:T.text }}>
           <span>Total Paid</span><span style={{ color:accent }}>${grand}</span>
         </div>
-        {/* ✅ Shows deducted pts when paying with points, earned pts otherwise */}
         <div style={{ background:T.isDark?"#1a1500":"#fffbeb", border:`1px solid ${accent}40`, borderRadius:8, padding:"10px 14px", marginTop:12, display:"flex", justifyContent:"space-between", fontSize:13 }}>
           <span style={{ color:"#92400e", fontWeight:700 }}>
             {usedPoints ? "⭐ Points Used" : "⭐ Points Earned"}
@@ -407,7 +406,6 @@ function Nav({ user, page, setPage, onLogout, history, goBack }:any) {
   const isMobile = useIsMobile();
   const [showSettings, setShowSettings] = useState(false);
   const [menuOpen,     setMenuOpen]     = useState(false);
-  // All roles use top nav — admin links restored, sidebar will be removed
   const links = user
     ? user.role==="customer" ? ["Menu","Drive-Thru","Reservations","Track","Rewards","Locations"]
     : user.role==="staff"    ? ["Orders","Drive-Thru"]
@@ -533,24 +531,55 @@ function GuestHome({ setPage }:any) {
   );
 }
 
+// ── LOGIN — wired to real backend ─────────────────────────────────────
 function Login({ onLogin, setPage, mode }:any) {
   const T = useTheme();
-  const [email,setEmail]=useState(""); const [pass,setPass]=useState(""); const [err,setErr]=useState("");
-  const [isSignup,setIsSignup]=useState(mode==="signup");
-  const roleMap: Record<string,string> = { Admin:"admin", Staff:"staff", User:"customer" };
+  const [email,    setEmail]    = useState("");
+  const [pass,     setPass]     = useState("");
+  const [name,     setName]     = useState("");
+  const [err,      setErr]      = useState("");
+  const [isSignup, setIsSignup] = useState(mode==="signup");
+
   const go = async () => {
+    setErr("");
+    const roleMap: Record<string, string> = {
+      "admin": "admin", "staff": "staff", "manager": "staff",
+      "customer": "customer", "user": "customer",
+    };
     try {
-      const res = await fetch("/api/authentication/login", {
-        method:"POST", headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({ userName: email, password: pass }),
-      });
-      if (!res.ok) { setErr("Invalid credentials."); return; }
-      const data = await res.json();
-      const role = roleMap[data.roles?.[0]] ?? "customer";
-      setErr("");
-      onLogin({ id: data.id, email: data.userName, role, name: data.userName, points: data.points ?? 0, location: 0 });
-    } catch { setErr("Connection error."); }
+      if (isSignup) {
+        const res = await fetch("/api/authentication/register", {
+          method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
+          body: JSON.stringify({ userName: name || email, email, password: pass }),
+        });
+        if (!res.ok) { setErr(await res.text() || "Registration failed."); return; }
+        const apiUser = await res.json();
+        const pointsRes = await fetch("/api/users/points", { credentials: "include" });
+        const realPoints = pointsRes.ok ? await pointsRes.json() : 0;
+        onLogin({ ...apiUser, role: roleMap[apiUser.roles?.[0]?.toLowerCase()] ?? "customer", name: apiUser.userName, email: apiUser.userName, points: realPoints, location: 1, lastOrder: null });
+      } else {
+        const res = await fetch("/api/authentication/login", {
+          method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
+          body: JSON.stringify({ userName: email, password: pass }),
+        });
+        if (!res.ok) { setErr("Invalid credentials."); return; }
+        const apiUser = await res.json();
+        const localUser = USERS.find(u => u.email === email);
+        const pointsRes = await fetch("/api/users/points", { credentials: "include" });
+        const realPoints = pointsRes.ok ? await pointsRes.json() : 0;
+        onLogin({
+          ...apiUser,
+          role: localUser?.role ?? roleMap[apiUser.roles?.[0]?.toLowerCase()] ?? "customer",
+          name: localUser?.name ?? apiUser.userName,
+          email: apiUser.userName,
+          points: realPoints,
+          location: localUser?.location ?? 1,
+          lastOrder: localUser?.lastOrder ?? null,
+        });
+      }
+    } catch (e) { setErr("Network error. Please try again."); }
   };
+
   return (
     <div style={{ minHeight:"100vh", background:T.bg, display:"flex", flexDirection:"column" as const, alignItems:"center", justifyContent:"center", padding:20 }}>
       <div style={{ height:4, background:`linear-gradient(90deg,${accent},${gold})`, position:"fixed", top:0, left:0, right:0 }} />
@@ -560,9 +589,14 @@ function Login({ onLogin, setPage, mode }:any) {
         <div style={{ color:T.subtext, fontSize:12, marginTop:4 }}>{isSignup?"Create your account":"Welcome back!"}</div>
       </div>
       <div style={{ background:T.card, borderRadius:14, padding:28, width:"100%", maxWidth:380, border:`1px solid ${T.border}` }}>
-        {isSignup && <input placeholder="Full Name" style={{ width:"100%", background:T.inputBg, border:`1px solid ${T.inputBorder}`, borderRadius:8, padding:"13px 14px", color:T.inputText, fontSize:14, marginBottom:10, boxSizing:"border-box" as const }} />}
-        <input value={email} onChange={e=>setEmail(e.target.value)} placeholder="Email" style={{ width:"100%", background:T.inputBg, border:`1px solid ${T.inputBorder}`, borderRadius:8, padding:"13px 14px", color:T.inputText, fontSize:14, boxSizing:"border-box" as const }} />
-        <input value={pass} onChange={e=>setPass(e.target.value)} placeholder="Password" type="password" style={{ width:"100%", background:T.inputBg, border:`1px solid ${T.inputBorder}`, borderRadius:8, padding:"13px 14px", color:T.inputText, fontSize:14, marginTop:10, boxSizing:"border-box" as const }} />
+        {isSignup && (
+          <input value={name} onChange={e=>setName(e.target.value)} placeholder="Full Name"
+            style={{ width:"100%", background:T.inputBg, border:`1px solid ${T.inputBorder}`, borderRadius:8, padding:"13px 14px", color:T.inputText, fontSize:14, marginBottom:10, boxSizing:"border-box" as const }} />
+        )}
+        <input value={email} onChange={e=>setEmail(e.target.value)} placeholder="Email"
+          style={{ width:"100%", background:T.inputBg, border:`1px solid ${T.inputBorder}`, borderRadius:8, padding:"13px 14px", color:T.inputText, fontSize:14, boxSizing:"border-box" as const }} />
+        <input value={pass} onChange={e=>setPass(e.target.value)} placeholder="Password" type="password"
+          style={{ width:"100%", background:T.inputBg, border:`1px solid ${T.inputBorder}`, borderRadius:8, padding:"13px 14px", color:T.inputText, fontSize:14, marginTop:10, boxSizing:"border-box" as const }} />
         {err && <div style={{ color:"#f87171", fontSize:12, marginTop:6 }}>{err}</div>}
         <button onClick={go} style={{ ...btn(accent,"#111"), width:"100%", padding:"14px 0", marginTop:14, fontSize:15, fontWeight:900 }}>{isSignup?"Create Account":"Sign In"}</button>
         <div style={{ textAlign:"center", marginTop:14, color:T.subtext, fontSize:12 }}>
@@ -626,7 +660,6 @@ function RewardsPage({ user }:any) {
   );
 }
 
-// ── Guest Menu — browse only, sign in to order ───────────────────────
 function GuestMenuPage({ setPage }:any) {
   const T = useTheme();
   const isMobile = useIsMobile();
@@ -668,6 +701,7 @@ function GuestMenuPage({ setPage }:any) {
   );
 }
 
+// ── CustomerApp — wired to real backend ───────────────────────────────
 function CustomerApp({ user, setUser, page, setPage, sharedOrders, setSharedOrders }:any) {
   const T = useTheme();
   const isMobile = useIsMobile();
@@ -692,19 +726,44 @@ function CustomerApp({ user, setUser, page, setPage, sharedOrders, setSharedOrde
     if (showCart) setShowCart(false);
   };
 
-  const handlePay = (payMethod:string) => {
-    const code    = "CL-" + Math.floor(1000+Math.random()*9000);
-    const locName = LOCATIONS.find(l=>l.id===selectedLoc)?.name||"Hammond";
-    const o = { id:"#"+(1040+sharedOrders.length+1), code, customer:user.name, items:cart, total, date:new Date().toLocaleDateString(), payMethod, type:isDriveThruCheckout?"drive-thru":"dine-in", status:"Pending", time:"Just now", location:locName, count:cart.length };
-    setSharedOrders((prev:any[])=>[o,...prev]);
-    setShowPayment(false);
-    if (isDriveThruCheckout) setDriveCode({ code, order:o });
-    else setReceipt({ ...o, payMethod });
-    setCart([]);
-    // ✅ Points payment deducts; card/apple earns
-    const ptsCost   = ptsCostFor(total);
-    const ptsChange = payMethod==="points" ? -ptsCost : ptsForSpend(total);
-    setUser((u:any)=>({ ...u, points: Math.max(0, u.points + ptsChange), lastOrder:o }));
+  // ── wired to backend ──────────────────────────────────────────────
+  const handlePay = async (payMethod: string) => {
+    try {
+      const res = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          locationId: selectedLoc,
+          items: cart.map(i => ({ name: i.name, price: i.price })),
+          total,
+        }),
+      });
+      if (!res.ok) { console.error("Order failed:", await res.text()); return; }
+      const order = await res.json();
+
+      const pointsRes = await fetch("/api/users/points", { credentials: "include" });
+      const newPoints = pointsRes.ok ? await pointsRes.json() : user.points;
+
+      const code    = "CL-" + Math.floor(1000 + Math.random() * 9000);
+      const locName = LOCATIONS.find(l => l.id === selectedLoc)?.name || "Hammond";
+      const o = {
+        id: `#${order.id}`, code, customer: user.name, items: cart, total,
+        date: new Date().toLocaleDateString(), payMethod,
+        type: isDriveThruCheckout ? "drive-thru" : "dine-in",
+        status: "Pending", time: "Just now", location: locName, count: cart.length,
+      };
+
+      setSharedOrders((prev: any[]) => [o, ...prev]);
+      setShowPayment(false);
+      if (isDriveThruCheckout) setDriveCode({ code, order: o });
+      else setReceipt({ ...o, payMethod });
+      setCart([]);
+
+      const ptsCost   = ptsCostFor(total);
+      const ptsChange = payMethod === "points" ? -ptsCost : ptsForSpend(total);
+      setUser((u: any) => ({ ...u, points: Math.max(0, newPoints + (payMethod === "points" ? ptsChange : 0)), lastOrder: o }));
+    } catch (e) { console.error("Order failed", e); }
   };
 
   if (page==="rewards") return <RewardsPage user={user} />;
@@ -944,13 +1003,37 @@ function ReservationsTab({ isMobile }:any) {
   );
 }
 
+// ── StaffApp — wired to real backend ──────────────────────────────────
 function StaffApp({ user, page, setPage, sharedOrders, setSharedOrders }:any) {
   const T = useTheme();
   const isMobile = useIsMobile();
   const isManager = user.role==="manager";
   const userLocation = LOCATIONS.find(l=>l.id===user.location)?.name||"Hammond";
-  const advance = (id:string) => setSharedOrders((o:any[])=>o.map((x:any)=>x.id===id&&STATUS_NEXT[x.status]?{...x,status:STATUS_NEXT[x.status]}:x));
-  const myOrders = sharedOrders.filter((o:any)=>o.location===userLocation&&o.status!=="Done");
+
+  const [apiOrders, setApiOrders] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetch("/api/orders", { credentials: "include" })
+      .then(r => r.json())
+      .then(data => setApiOrders(Array.isArray(data) ? data : []))
+      .catch(console.error);
+  }, []);
+
+  const advance = async (id: number) => {
+    const order = apiOrders.find((o: any) => o.id === id);
+    if (!order) return;
+    const nextStatus = STATUS_NEXT[order.status];
+    if (!nextStatus) return;
+    await fetch(`/api/orders/${id}/status`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(nextStatus),
+    });
+    setApiOrders(o => o.map((x: any) => x.id === id ? { ...x, status: nextStatus } : x));
+  };
+
+  const myOrders = apiOrders.filter((o: any) => o.status !== "Done");
 
   return (
     <div style={{ background:T.bg, minHeight:"100vh" }}>
@@ -965,17 +1048,14 @@ function StaffApp({ user, page, setPage, sharedOrders, setSharedOrders }:any) {
         {page==="orders" && (
           <div>
             {myOrders.filter((o:any)=>o.type!=="drive-thru").length===0
-              ? <div style={{ textAlign:"center", color:T.subtext, padding:40, fontSize:14 }}>No active orders at {userLocation}</div>
+              ? <div style={{ textAlign:"center", color:T.subtext, padding:40, fontSize:14 }}>No active orders</div>
               : myOrders.filter((o:any)=>o.type!=="drive-thru").map((o:any)=>(
                 <Card key={o.id} style={{ padding:16, marginBottom:12 }}>
                   <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", flexWrap:"wrap" as const, gap:8 }}>
                     <div>
-                      <div style={{ fontWeight:900, fontSize:15, color:T.text }}>{o.customer}</div>
-                      <div style={{ color:T.subtext, fontSize:12, marginTop:2 }}>{o.items.map((i:any)=>i.name).join(", ")} · {o.count} item{o.count>1?"s":""}</div>
-                      {o.items.map((i:any,idx:number)=>i.customizations&&(
-                        <div key={idx} style={{ fontSize:11, color:T.subtext }}>{i.name}: {[i.customizations.size,i.customizations.milk,i.customizations.temp,...(i.customizations.extras||[])].filter(Boolean).join(" · ")}{i.customizations.notes&&` · "${i.customizations.notes}"`}</div>
-                      ))}
-                      <div style={{ color:T.subtext, fontSize:11, marginTop:4 }}>{o.id} · {o.time}</div>
+                      <div style={{ fontWeight:900, fontSize:15, color:T.text }}>{o.userName}</div>
+                      <div style={{ color:T.subtext, fontSize:12, marginTop:2 }}>{o.items.map((i:any)=>i.name).join(", ")}</div>
+                      <div style={{ color:T.subtext, fontSize:11, marginTop:4 }}>#{o.id} · 📍 {o.locationName} · ${o.total?.toFixed(2)} · {new Date(o.createdAt).toLocaleTimeString()}</div>
                     </div>
                     <div style={{ display:"flex", gap:8, alignItems:"center", flexWrap:"wrap" as const }}>
                       <span style={{ background:STATUS_COLOR[o.status], color:"#fff", fontSize:10, fontWeight:800, padding:"3px 10px", borderRadius:20 }}>{o.status}</span>
@@ -992,14 +1072,14 @@ function StaffApp({ user, page, setPage, sharedOrders, setSharedOrders }:any) {
         {page==="drive-thru" && (
           <div>
             {myOrders.filter((o:any)=>o.type==="drive-thru").length===0
-              ? <div style={{ textAlign:"center", color:T.subtext, padding:40, fontSize:14 }}>No drive-thru orders at {userLocation}</div>
+              ? <div style={{ textAlign:"center", color:T.subtext, padding:40, fontSize:14 }}>No drive-thru orders</div>
               : myOrders.filter((o:any)=>o.type==="drive-thru").map((o:any)=>(
                 <Card key={o.id} style={{ padding:16, marginBottom:12 }}>
                   <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
                     <div>
-                      <div style={{ fontWeight:900, fontSize:15, color:T.text }}>{o.customer}</div>
+                      <div style={{ fontWeight:900, fontSize:15, color:T.text }}>{o.userName}</div>
                       <div style={{ color:T.subtext, fontSize:12 }}>{o.items.map((i:any)=>i.name).join(", ")}</div>
-                      <span style={{ background:accent, color:"#111", fontSize:11, fontWeight:800, padding:"2px 10px", borderRadius:20, marginTop:6, display:"inline-block" }}>Code: {o.code}</span>
+                      <div style={{ color:T.subtext, fontSize:11, marginTop:4 }}>📍 {o.locationName} · ${o.total?.toFixed(2)}</div>
                     </div>
                     <div style={{ display:"flex", gap:8, alignItems:"center" }}>
                       <span style={{ background:STATUS_COLOR[o.status], color:"#fff", fontSize:10, fontWeight:800, padding:"3px 10px", borderRadius:20 }}>{o.status}</span>
@@ -1035,7 +1115,7 @@ function StaffApp({ user, page, setPage, sharedOrders, setSharedOrders }:any) {
                   <div style={{ fontWeight:800, fontSize:14, color:T.text, marginBottom:12 }}>📋 Active Orders</div>
                   {myOrders.slice(0,5).map((o:any,i:number)=>(
                     <div key={i} style={{ display:"flex", justifyContent:"space-between", fontSize:12, padding:"6px 0", borderBottom:i<Math.min(myOrders.length,5)-1?`1px solid ${T.border}`:"none" }}>
-                      <span style={{ color:T.text }}>{o.id} — {o.customer} — {o.items.map((it:any)=>it.name).join(", ")}</span>
+                      <span style={{ color:T.text }}>#{o.id} — {o.userName} — {o.items.map((it:any)=>it.name).join(", ")}</span>
                       <span style={{ background:STATUS_COLOR[o.status], color:"#fff", fontSize:10, fontWeight:700, padding:"2px 8px", borderRadius:20 }}>{o.status}</span>
                     </div>
                   ))}
@@ -1137,154 +1217,154 @@ function AdminApp({ page }:any) {
           </div>
         )}
 
-          {page==="dashboard" && (
-            <div>
-              <h2 style={{ fontWeight:900, fontSize:18, color:T.text, marginBottom:16 }}>📊 Overview — {selLoc===0?"All Locations":locNames[selLoc-1]}</h2>
-              <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)", gap:isMobile?10:14, marginBottom:20 }}>
-                {[
-                  {l:"Orders Today", v:ordersToday,             i:"📦"},
-                  {l:"Revenue",      v:"$"+totalRev.toFixed(0), i:"💰"},
-                  {l:"Total Orders", v:filteredOrders.length,   i:"📋"},
-                  {l:"Locations",    v:locations.length,        i:"📍"},
-                ].map((s,i)=>(
-                  <Card key={i} style={{ padding:isMobile?14:20, textAlign:"center" }}>
-                    <div style={{ fontSize:isMobile?24:28 }}>{s.i}</div>
-                    <div style={{ fontWeight:900, fontSize:isMobile?18:22, color:accent }}>{s.v}</div>
-                    <div style={{ fontSize:11, color:T.subtext }}>{s.l}</div>
-                  </Card>
+        {page==="dashboard" && (
+          <div>
+            <h2 style={{ fontWeight:900, fontSize:18, color:T.text, marginBottom:16 }}>📊 Overview — {selLoc===0?"All Locations":locNames[selLoc-1]}</h2>
+            <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)", gap:isMobile?10:14, marginBottom:20 }}>
+              {[
+                {l:"Orders Today", v:ordersToday,             i:"📦"},
+                {l:"Revenue",      v:"$"+totalRev.toFixed(0), i:"💰"},
+                {l:"Total Orders", v:filteredOrders.length,   i:"📋"},
+                {l:"Locations",    v:locations.length,        i:"📍"},
+              ].map((s,i)=>(
+                <Card key={i} style={{ padding:isMobile?14:20, textAlign:"center" }}>
+                  <div style={{ fontSize:isMobile?24:28 }}>{s.i}</div>
+                  <div style={{ fontWeight:900, fontSize:isMobile?18:22, color:accent }}>{s.v}</div>
+                  <div style={{ fontSize:11, color:T.subtext }}>{s.l}</div>
+                </Card>
+              ))}
+            </div>
+            <Card style={{ padding:isMobile?14:20, marginBottom:16 }}>
+              <div style={{ fontWeight:800, fontSize:14, color:T.text, marginBottom:16 }}>📅 Orders by Day This Week</div>
+              <div style={{ display:"flex", alignItems:"flex-end", gap:8, height:120, padding:"0 4px" }}>
+                {days.map((d,i)=>(
+                  <div key={i} style={{ flex:1, display:"flex", flexDirection:"column" as const, alignItems:"center", gap:4 }}>
+                    <div style={{ color:T.subtext, fontSize:10 }}>{dayData[i]}</div>
+                    <div style={{ width:"100%", background:i===todayIdx?accent:"#4b5563", borderRadius:"4px 4px 0 0", height:`${(dayData[i]/maxDay)*90}%`, minHeight:4, transition:"height .3s" }} />
+                    <div style={{ color:i===todayIdx?accent:T.subtext, fontSize:11, fontWeight:i===todayIdx?800:400 }}>{d}</div>
+                  </div>
                 ))}
               </div>
-              <Card style={{ padding:isMobile?14:20, marginBottom:16 }}>
-                <div style={{ fontWeight:800, fontSize:14, color:T.text, marginBottom:16 }}>📅 Orders by Day This Week</div>
-                <div style={{ display:"flex", alignItems:"flex-end", gap:8, height:120, padding:"0 4px" }}>
-                  {days.map((d,i)=>(
-                    <div key={i} style={{ flex:1, display:"flex", flexDirection:"column" as const, alignItems:"center", gap:4 }}>
-                      <div style={{ color:T.subtext, fontSize:10 }}>{dayData[i]}</div>
-                      <div style={{ width:"100%", background:i===todayIdx?accent:"#4b5563", borderRadius:"4px 4px 0 0", height:`${(dayData[i]/maxDay)*90}%`, minHeight:4, transition:"height .3s" }} />
-                      <div style={{ color:i===todayIdx?accent:T.subtext, fontSize:11, fontWeight:i===todayIdx?800:400 }}>{d}</div>
+            </Card>
+            <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 1fr", gap:14 }}>
+              <Card style={{ padding:isMobile?14:20 }}>
+                <div style={{ fontWeight:800, fontSize:14, color:T.text, marginBottom:12 }}>🔥 Top Sellers</div>
+                {sellers.length===0
+                  ? <div style={{ color:T.subtext, fontSize:13, textAlign:"center", padding:"16px 0" }}>No orders yet</div>
+                  : sellers.map((x,i)=>(
+                    <div key={i} style={{ marginBottom:10 }}>
+                      <div style={{ display:"flex", justifyContent:"space-between", fontSize:13, marginBottom:3, color:T.text }}><span>{x.name}</span><span style={{ color:T.subtext }}>{x.cnt} order{x.cnt!==1?"s":""}</span></div>
+                      <div style={{ background:T.surface2, borderRadius:4, height:6 }}><div style={{ background:accent, width:`${(x.cnt/maxSell)*100}%`, height:"100%", borderRadius:4 }} /></div>
                     </div>
-                  ))}
+                  ))
+                }
+              </Card>
+              <Card style={{ padding:isMobile?14:20 }}>
+                <div style={{ fontWeight:800, fontSize:14, color:T.text, marginBottom:12 }}>📍 Revenue by Location</div>
+                {revenueByLoc.length===0
+                  ? <div style={{ color:T.subtext, fontSize:13, textAlign:"center", padding:"16px 0" }}>No orders yet</div>
+                  : revenueByLoc.map((l,i)=>(
+                    <div key={i} style={{ marginBottom:10 }}>
+                      <div style={{ display:"flex", justifyContent:"space-between", fontSize:13, marginBottom:3, color:T.text }}><span>{l.name}</span><span style={{ color:accent, fontWeight:700 }}>${l.rev.toFixed(0)}</span></div>
+                      <div style={{ background:T.surface2, borderRadius:4, height:6 }}><div style={{ background:accent, width:`${(l.rev/maxLocRev)*100}%`, height:"100%", borderRadius:4 }} /></div>
+                    </div>
+                  ))
+                }
+              </Card>
+            </div>
+          </div>
+        )}
+
+        {page==="menu" && (
+          <div>
+            <h2 style={{ fontWeight:900, fontSize:18, color:T.text, marginBottom:16 }}>🍽 Menu Management</h2>
+            {menu.length===0
+              ? <div style={{ textAlign:"center", color:T.subtext, padding:40 }}>No menu items found</div>
+              : menu.map((item:any)=>(
+              <Card key={item.id} style={{ display:"flex", alignItems:"center", gap:isMobile?10:14, padding:isMobile?12:14, marginBottom:10, opacity:item.isEnabled?1:0.5 }}>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ fontWeight:800, fontSize:isMobile?12:14, color:T.text }}>{item.name}</div>
+                  <div style={{ color:T.subtext, fontSize:11 }}>{item.description} · ${Number(item.price).toFixed(2)}</div>
+                </div>
+                <button onClick={()=>togglePopular(item.id,item.isPopular)} style={{ ...btn(item.isPopular?accent:T.surface2, item.isPopular?"#111":T.subtext), padding:"5px 10px", fontSize:10, whiteSpace:"nowrap" as const }}>{item.isPopular?"🔥 Popular":"Set Pop"}</button>
+                <button onClick={()=>toggleEnabled(item.id,item.isEnabled)} style={{ background:item.isEnabled?"#fee2e2":"#dcfce7", color:item.isEnabled?"#dc2626":"#16a34a", border:"none", borderRadius:8, padding:"5px 10px", fontSize:10, cursor:"pointer", fontWeight:700 }}>{item.isEnabled?"Disable":"Enable"}</button>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        {page==="orders" && (
+          <div>
+            <h2 style={{ fontWeight:900, fontSize:18, color:T.text, marginBottom:16 }}>📦 All Orders</h2>
+            {filteredOrders.length===0
+              ? <div style={{ textAlign:"center", color:T.subtext, padding:40 }}>No orders yet</div>
+              : filteredOrders.map((o:any,i:number)=>(
+                <Card key={i} style={{ padding:isMobile?12:16, marginBottom:10 }}>
+                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", flexWrap:"wrap" as const, gap:8 }}>
+                    <div>
+                      <div style={{ fontWeight:900, fontSize:13, color:T.text }}>{o.userName} — {o.items?.map((it:any)=>it.name).join(", ")}</div>
+                      <div style={{ color:T.subtext, fontSize:11 }}>#{o.id} · 📍 {o.locationName} · {new Date(o.createdAt).toLocaleString()}</div>
+                      <div style={{ color:T.subtext, fontSize:11 }}>Total: ${Number(o.total).toFixed(2)}</div>
+                    </div>
+                    <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+                      <span style={{ background:STATUS_COLOR[o.status]||"#6b7280", color:"#fff", fontSize:10, fontWeight:800, padding:"3px 10px", borderRadius:20 }}>{o.status}</span>
+                      {STATUS_NEXT[o.status]&&<button onClick={()=>advanceOrder(o.id,STATUS_NEXT[o.status])} style={{ ...btn("#2563eb"), padding:"6px 12px", fontSize:11 }}>→ {STATUS_NEXT[o.status]}</button>}
+                    </div>
+                  </div>
+                </Card>
+              ))
+            }
+          </div>
+        )}
+
+        {page==="locations" && <LocationsPage isAdmin />}
+
+        {page==="staff" && (
+          <div>
+            <h2 style={{ fontWeight:900, fontSize:18, color:T.text, marginBottom:16 }}>👥 Staff</h2>
+            {staffMembers.length===0
+              ? <div style={{ textAlign:"center", color:T.subtext, padding:40 }}>No staff found</div>
+              : staffMembers.map((s:any,i:number)=>(
+              <Card key={i} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:isMobile?12:16, marginBottom:10 }}>
+                <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                  <div style={{ width:36, height:36, borderRadius:"50%", background:T.surface2, display:"flex", alignItems:"center", justifyContent:"center", fontSize:16, flexShrink:0 }}>👤</div>
+                  <div>
+                    <div style={{ fontWeight:700, fontSize:13, color:T.text }}>{s.userName}</div>
+                    <div style={{ color:T.subtext, fontSize:11 }}>{s.roles?.join(", ")} · {s.points} pts</div>
+                  </div>
                 </div>
               </Card>
-              <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 1fr", gap:14 }}>
-                <Card style={{ padding:isMobile?14:20 }}>
-                  <div style={{ fontWeight:800, fontSize:14, color:T.text, marginBottom:12 }}>🔥 Top Sellers</div>
-                  {sellers.length===0
-                    ? <div style={{ color:T.subtext, fontSize:13, textAlign:"center", padding:"16px 0" }}>No orders yet</div>
-                    : sellers.map((x,i)=>(
-                      <div key={i} style={{ marginBottom:10 }}>
-                        <div style={{ display:"flex", justifyContent:"space-between", fontSize:13, marginBottom:3, color:T.text }}><span>{x.name}</span><span style={{ color:T.subtext }}>{x.cnt} order{x.cnt!==1?"s":""}</span></div>
-                        <div style={{ background:T.surface2, borderRadius:4, height:6 }}><div style={{ background:accent, width:`${(x.cnt/maxSell)*100}%`, height:"100%", borderRadius:4 }} /></div>
-                      </div>
-                    ))
-                  }
-                </Card>
-                <Card style={{ padding:isMobile?14:20 }}>
-                  <div style={{ fontWeight:800, fontSize:14, color:T.text, marginBottom:12 }}>📍 Revenue by Location</div>
-                  {revenueByLoc.length===0
-                    ? <div style={{ color:T.subtext, fontSize:13, textAlign:"center", padding:"16px 0" }}>No orders yet</div>
-                    : revenueByLoc.map((l,i)=>(
-                      <div key={i} style={{ marginBottom:10 }}>
-                        <div style={{ display:"flex", justifyContent:"space-between", fontSize:13, marginBottom:3, color:T.text }}><span>{l.name}</span><span style={{ color:accent, fontWeight:700 }}>${l.rev.toFixed(0)}</span></div>
-                        <div style={{ background:T.surface2, borderRadius:4, height:6 }}><div style={{ background:accent, width:`${(l.rev/maxLocRev)*100}%`, height:"100%", borderRadius:4 }} /></div>
-                      </div>
-                    ))
-                  }
-                </Card>
-              </div>
-            </div>
-          )}
+            ))}
+          </div>
+        )}
 
-          {page==="menu" && (
-            <div>
-              <h2 style={{ fontWeight:900, fontSize:18, color:T.text, marginBottom:16 }}>🍽 Menu Management</h2>
-              {menu.length===0
-                ? <div style={{ textAlign:"center", color:T.subtext, padding:40 }}>No menu items found</div>
-                : menu.map((item:any)=>(
-                <Card key={item.id} style={{ display:"flex", alignItems:"center", gap:isMobile?10:14, padding:isMobile?12:14, marginBottom:10, opacity:item.isEnabled?1:0.5 }}>
-                  <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ fontWeight:800, fontSize:isMobile?12:14, color:T.text }}>{item.name}</div>
-                    <div style={{ color:T.subtext, fontSize:11 }}>{item.description} · ${Number(item.price).toFixed(2)}</div>
+        {page==="settings" && (
+          <div>
+            <h2 style={{ fontWeight:900, fontSize:18, color:T.text, marginBottom:16 }}>⚙️ Settings</h2>
+            {locations.length===0
+              ? <div style={{ textAlign:"center", color:T.subtext, padding:40 }}>Loading locations...</div>
+              : locations.map((loc:any)=>(
+              <Card key={loc.id} style={{ padding:isMobile?16:20, marginBottom:14 }}>
+                <div style={{ fontWeight:800, fontSize:15, color:T.text, marginBottom:12 }}>📍 {loc.name}</div>
+                {([
+                  {label:"Drive-Thru",        field:"driveThruEnabled",      value:loc.driveThruEnabled},
+                  {label:"Table Reservations", field:"reservationsEnabled",   value:loc.reservationsEnabled},
+                  {label:"Online Ordering",    field:"onlineOrderingEnabled", value:loc.onlineOrderingEnabled},
+                ] as {label:string,field:string,value:boolean}[]).map(({label,field,value},i)=>(
+                  <div key={i} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 0", borderBottom:`1px solid ${T.border}` }}>
+                    <span style={{ fontSize:14, color:T.text }}>{label}</span>
+                    <button onClick={()=>toggleLocSetting(loc,field,value)}
+                      style={{ background:value?T.isDark?"#14291a":"#dcfce7":T.surface2, color:value?"#16a34a":T.subtext, border:`1px solid ${value?"#16a34a40":T.border}`, borderRadius:20, padding:"5px 16px", fontSize:11, fontWeight:700, cursor:"pointer" }}>
+                      {value?"✓ Enabled":"✗ Disabled"}
+                    </button>
                   </div>
-                  <button onClick={()=>togglePopular(item.id,item.isPopular)} style={{ ...btn(item.isPopular?accent:T.surface2, item.isPopular?"#111":T.subtext), padding:"5px 10px", fontSize:10, whiteSpace:"nowrap" as const }}>{item.isPopular?"🔥 Popular":"Set Pop"}</button>
-                  <button onClick={()=>toggleEnabled(item.id,item.isEnabled)} style={{ background:item.isEnabled?"#fee2e2":"#dcfce7", color:item.isEnabled?"#dc2626":"#16a34a", border:"none", borderRadius:8, padding:"5px 10px", fontSize:10, cursor:"pointer", fontWeight:700 }}>{item.isEnabled?"Disable":"Enable"}</button>
-                </Card>
-              ))}
-            </div>
-          )}
-
-          {page==="orders" && (
-            <div>
-              <h2 style={{ fontWeight:900, fontSize:18, color:T.text, marginBottom:16 }}>📦 All Orders</h2>
-              {filteredOrders.length===0
-                ? <div style={{ textAlign:"center", color:T.subtext, padding:40 }}>No orders yet</div>
-                : filteredOrders.map((o:any,i:number)=>(
-                  <Card key={i} style={{ padding:isMobile?12:16, marginBottom:10 }}>
-                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", flexWrap:"wrap" as const, gap:8 }}>
-                      <div>
-                        <div style={{ fontWeight:900, fontSize:13, color:T.text }}>{o.userName} — {o.items.map((it:any)=>it.name).join(", ")}</div>
-                        <div style={{ color:T.subtext, fontSize:11 }}>#{o.id} · 📍 {o.locationName} · {new Date(o.createdAt).toLocaleString()}</div>
-                        <div style={{ color:T.subtext, fontSize:11 }}>Total: ${Number(o.total).toFixed(2)}</div>
-                      </div>
-                      <div style={{ display:"flex", gap:8, alignItems:"center" }}>
-                        <span style={{ background:STATUS_COLOR[o.status]||"#6b7280", color:"#fff", fontSize:10, fontWeight:800, padding:"3px 10px", borderRadius:20 }}>{o.status}</span>
-                        {STATUS_NEXT[o.status]&&<button onClick={()=>advanceOrder(o.id,STATUS_NEXT[o.status])} style={{ ...btn("#2563eb"), padding:"6px 12px", fontSize:11 }}>→ {STATUS_NEXT[o.status]}</button>}
-                      </div>
-                    </div>
-                  </Card>
-                ))
-              }
-            </div>
-          )}
-
-          {page==="locations" && <LocationsPage isAdmin />}
-
-          {page==="staff" && (
-            <div>
-              <h2 style={{ fontWeight:900, fontSize:18, color:T.text, marginBottom:16 }}>👥 Staff</h2>
-              {staffMembers.length===0
-                ? <div style={{ textAlign:"center", color:T.subtext, padding:40 }}>No staff found</div>
-                : staffMembers.map((s:any,i:number)=>(
-                <Card key={i} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:isMobile?12:16, marginBottom:10 }}>
-                  <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                    <div style={{ width:36, height:36, borderRadius:"50%", background:T.surface2, display:"flex", alignItems:"center", justifyContent:"center", fontSize:16, flexShrink:0 }}>👤</div>
-                    <div>
-                      <div style={{ fontWeight:700, fontSize:13, color:T.text }}>{s.userName}</div>
-                      <div style={{ color:T.subtext, fontSize:11 }}>{s.roles?.join(", ")} · {s.points} pts</div>
-                    </div>
-                  </div>
-                </Card>
-              ))}
-            </div>
-          )}
-
-          {page==="settings" && (
-            <div>
-              <h2 style={{ fontWeight:900, fontSize:18, color:T.text, marginBottom:16 }}>⚙️ Settings</h2>
-              {locations.length===0
-                ? <div style={{ textAlign:"center", color:T.subtext, padding:40 }}>Loading locations...</div>
-                : locations.map((loc:any)=>(
-                <Card key={loc.id} style={{ padding:isMobile?16:20, marginBottom:14 }}>
-                  <div style={{ fontWeight:800, fontSize:15, color:T.text, marginBottom:12 }}>📍 {loc.name}</div>
-                  {([
-                    {label:"Drive-Thru",        field:"driveThruEnabled",      value:loc.driveThruEnabled},
-                    {label:"Table Reservations", field:"reservationsEnabled",   value:loc.reservationsEnabled},
-                    {label:"Online Ordering",    field:"onlineOrderingEnabled", value:loc.onlineOrderingEnabled},
-                  ] as {label:string,field:string,value:boolean}[]).map(({label,field,value},i)=>(
-                    <div key={i} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 0", borderBottom:`1px solid ${T.border}` }}>
-                      <span style={{ fontSize:14, color:T.text }}>{label}</span>
-                      <button onClick={()=>toggleLocSetting(loc,field,value)}
-                        style={{ background:value?T.isDark?"#14291a":"#dcfce7":T.surface2, color:value?"#16a34a":T.subtext, border:`1px solid ${value?"#16a34a40":T.border}`, borderRadius:20, padding:"5px 16px", fontSize:11, fontWeight:700, cursor:"pointer" }}>
-                        {value?"✓ Enabled":"✗ Disabled"}
-                      </button>
-                    </div>
-                  ))}
-                </Card>
-              ))}
-            </div>
-          )}
-        </div>
+                ))}
+              </Card>
+            ))}
+          </div>
+        )}
       </div>
+    </div>
   );
 }
 
