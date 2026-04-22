@@ -160,7 +160,28 @@ const STATUS_NEXT  = { Pending:"Preparing", Preparing:"Ready", Ready:"Done" } as
 const STATUS_COLOR = { Pending:"#f59e0b", Preparing:"#3b82f6", Ready:"#16a34a", Done:"#9ca3af" } as Record<string,string>;
 const ROLE_COLOR   = { customer:"#16a34a", User:"#16a34a", staff:"#2563eb", Staff:"#2563eb", manager:"#7c3aed", Manager:"#7c3aed", admin:"#dc2626", Admin:"#dc2626" } as Record<string,string>;
 
+// ── Location name helper ──────────────────────────────────────────────
+function getLocName(o: any, locations: any[]) {
+  // Handles API orders (locationName), local orders (location), or locationId fallback
+  if (o.locationName) return o.locationName;
+  if (o.location && isNaN(Number(o.location))) return o.location;
+  if (o.locationId) return locations.find((l:any) => l.id === o.locationId)?.name ?? "Hammond";
+  return "Hammond";
+}
+
 const ptsForSpend  = (amt: number) => Math.floor(amt * 10);
+function toCST(dateStr: string | Date) {
+  const date = typeof dateStr === "string" ? new Date(dateStr) : dateStr;
+  return date.toLocaleString("en-US", {
+    timeZone: "America/Chicago",
+    month:  "short",
+    day:    "numeric",
+    hour:   "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+}
+
 const ptsCostFor   = (amt: number) => Math.ceil(amt * 100);
 const ptsToDollars = (pts: number) => (pts / 100).toFixed(2);
 
@@ -467,34 +488,48 @@ function AppHeader({ user, T, isDark, setIsDark, onLogout }: any) {
 // ── Popular Reel ──────────────────────────────────────────────────────
 function PopularReel({ onOrder, T, menu }: any) {
   const popular = [...menu].filter((m:any)=>m.popular).sort((a:any,b:any)=>b.orders-a.orders);
-  const [active, setActive] = useState(0);
+  const [current, setCurrent] = useState(0);
+  const [next,    setNext]    = useState(1);
   const fade = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    if (popular.length === 0) return;
+    if (popular.length <= 1) return;
     const t = setInterval(() => {
-      Animated.timing(fade, { toValue:0, duration:300, useNativeDriver:true }).start(() => {
-        setActive(i => (i+1)%popular.length);
-        Animated.timing(fade, { toValue:1, duration:300, useNativeDriver:true }).start();
+      const nxt = (current + 1) % popular.length;
+      setNext(nxt);
+      Animated.timing(fade, { toValue:0, duration:500, useNativeDriver:true }).start(() => {
+        setCurrent(nxt);
+        fade.setValue(1);
       });
     }, 3000);
     return () => clearInterval(t);
-  }, [popular.length]);
+  }, [current, popular.length]);
 
   if (popular.length === 0) return null;
 
   return (
-    <View style={{ backgroundColor:T.isDark?"#0a0a0a":"#1a1a1a", padding:24, alignItems:"center" }}>
+    <View style={{ backgroundColor:"#1a1a1a", padding:24, alignItems:"center" }}>
       <Text style={{ color:"#aaa", fontSize:11, fontWeight:"800", letterSpacing:2, marginBottom:16 }}>🔥 MOST POPULAR</Text>
-      <Animated.View style={{ opacity:fade, alignItems:"center" }}>
-        <Image source={{ uri:popular[active].img }} style={{ width:width-80, height:200, borderRadius:16, marginBottom:14 }} />
-        <Text style={{ color:"#fff", fontWeight:"900", fontSize:20 }}>{popular[active].name}</Text>
-        <Text style={{ color:accent, fontSize:16, fontWeight:"700", marginTop:4 }}>${popular[active].price.toFixed(2)}</Text>
-      </Animated.View>
+
+      {/* Crossfade — next image sits beneath, current fades out on top */}
+      <View style={{ width:width-80, height:200, borderRadius:16, overflow:"hidden", marginBottom:14 }}>
+        <Image source={{ uri:popular[next % popular.length].img }}
+          style={{ position:"absolute", width:"100%", height:"100%", borderRadius:16 }} />
+        <Animated.Image source={{ uri:popular[current].img }}
+          style={{ position:"absolute", width:"100%", height:"100%", borderRadius:16, opacity:fade }} />
+      </View>
+
+      <Animated.Text style={{ color:"#fff", fontWeight:"900", fontSize:20, opacity:fade }}>
+        {popular[current].name}
+      </Animated.Text>
+      <Animated.Text style={{ color:accent, fontSize:16, fontWeight:"700", marginTop:4, opacity:fade }}>
+        ${popular[current].price.toFixed(2)}
+      </Animated.Text>
+
       <View style={{ flexDirection:"row", justifyContent:"center", gap:8, marginTop:14 }}>
         {popular.map((_:any,i:number) => (
-          <TouchableOpacity key={i} onPress={() => setActive(i)}
-            style={{ width:8, height:8, borderRadius:4, backgroundColor:i===active?accent:"#555" }} />
+          <TouchableOpacity key={i} onPress={() => setCurrent(i)}
+            style={{ width:8, height:8, borderRadius:4, backgroundColor:i===current?accent:"#555" }} />
         ))}
       </View>
       <GoldBtn label="Order Now" onPress={onOrder} style={{ marginTop:20, width:"100%" }} />
@@ -884,7 +919,7 @@ function CustomerApp({ user, setUser, onLogout, isDark, setIsDark, sharedOrders,
       id:"#"+(1040+sharedOrders.length+1), code, customer: user.userName ?? user.name,
       items:cart, total, date:new Date().toLocaleDateString(),
       payMethod, type:isDriveThru?"drive-thru":"dine-in",
-      status:"Pending", time:"Just now", location:locName, count:cart.length,
+      status:"Pending", time:toCST(new Date()), location:locName, count:cart.length,
     };
     setSharedOrders((prev:any[])=>[o,...prev]);
     setShowPayment(false);
@@ -1038,7 +1073,10 @@ function StaffApp({ user, onLogout, isDark, setIsDark, sharedOrders, setSharedOr
   const [tab, setTab] = useState("orders");
   const userLocation  = locations.find((l:any)=>l.id===user.locationId)?.name ?? locations[0]?.name ?? "Hammond";
   const advance = (id:string) => setSharedOrders((o:any[])=>o.map((x:any)=>x.id===id&&STATUS_NEXT[x.status]?{...x,status:STATUS_NEXT[x.status]}:x));
-  const myOrders = sharedOrders.filter((o:any)=>o.location===userLocation&&o.status!=="Done");
+  const myOrders = sharedOrders.filter((o:any)=>{
+    const loc = getLocName(o, locations);
+    return loc===userLocation && o.status!=="Done";
+  });
 
   const tabs = isManager
     ? [{icon:"📋",label:"Orders",val:"orders"},{icon:"🚗",label:"Drive-Thru",val:"drive-thru"},{icon:"📊",label:"Dashboard",val:"dashboard"}]
@@ -1063,7 +1101,7 @@ function StaffApp({ user, onLogout, isDark, setIsDark, sharedOrders, setSharedOr
                 <Card key={o.id} style={{ padding:16, marginBottom:12 }} T={T}>
                   <Text style={{ fontWeight:"900", fontSize:15, color:T.text }}>{o.customer}</Text>
                   <Text style={{ color:T.subtext, fontSize:12, marginTop:2 }}>{o.items.map((i:any)=>i.name).join(", ")} · {o.count} item{o.count>1?"s":""}</Text>
-                  <Text style={{ color:T.subtext, fontSize:11, marginTop:4 }}>{o.id} · {o.time}</Text>
+                  <Text style={{ color:T.subtext, fontSize:11, marginTop:4 }}>{o.id} · {o.createdAt ? toCST(o.createdAt) : o.time}</Text>
                   <View style={{ flexDirection:"row", alignItems:"center", gap:10, marginTop:10 }}>
                     <View style={[s.statusBadge, { backgroundColor:STATUS_COLOR[o.status] }]}>
                       <Text style={s.statusBadgeTxt}>{o.status}</Text>
@@ -1282,7 +1320,7 @@ function AdminApp({ user, onLogout, isDark, setIsDark, sharedOrders, setSharedOr
                         {o.customer} — {o.items.map((it:any)=>it.name).join(", ")}
                       </Text>
                       <Text style={{ color:T.subtext, fontSize:11, marginTop:2 }}>
-                        {o.id} · {o.type} · 📍 {o.location} · {o.time}
+                        {o.id} · {o.type} · 📍 {getLocName(o, locations)} · {o.createdAt ? toCST(o.createdAt) : o.time}
                       </Text>
                       {o.type==="drive-thru"&&(
                         <View style={{ backgroundColor:accent, borderRadius:20, paddingHorizontal:8, paddingVertical:2, alignSelf:"flex-start", marginTop:4 }}>
@@ -1432,7 +1470,7 @@ const s = StyleSheet.create({
   roleBadge:     { borderRadius:20, paddingHorizontal:7, paddingVertical:2, marginTop:4, alignSelf:"flex-start" },
   roleBadgeTxt:  { color:"#fff", fontSize:9, fontWeight:"800" },
   overlay:       { flex:1, backgroundColor:"rgba(0,0,0,0.75)", justifyContent:"center", alignItems:"center", padding:20 },
-  modalBox:      { borderRadius:16, padding:24, width:"100%" },
+  modalBox:      { borderRadius:16, padding:24, width:"100%", overflow:"hidden" },
   modalTitle:    { fontWeight:"900", fontSize:18, textAlign:"center", marginTop:8 },
   modalSub:      { fontSize:12, textAlign:"center", marginTop:4, marginBottom:16 },
   dashed:        { borderTopWidth:2, borderStyle:"dashed", marginVertical:12 },
