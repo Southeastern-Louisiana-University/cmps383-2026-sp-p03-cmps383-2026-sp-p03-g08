@@ -543,7 +543,7 @@ function Login({ onLogin, setPage, mode }:any) {
   const go = async () => {
     setErr("");
     const roleMap: Record<string, string> = {
-      "admin": "admin", "staff": "staff", "manager": "staff",
+      "admin": "admin", "staff": "staff", "manager": "manager",
       "customer": "customer", "user": "customer",
     };
     try {
