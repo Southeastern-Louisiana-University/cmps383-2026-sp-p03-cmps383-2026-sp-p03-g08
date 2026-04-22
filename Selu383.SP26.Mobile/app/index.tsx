@@ -875,6 +875,138 @@ function ReservationsScreen({ T }: any) {
   );
 }
 
+// ── Customize Modal ───────────────────────────────────────────────────
+function CustomizeModal({ item, onAdd, onClose, T }: any) {
+  const [size, setSize] = useState("Medium");
+  const [milk, setMilk] = useState("Whole Milk");
+  const [sweet, setSweet] = useState("Normal");
+  const [temp, setTemp] = useState(item.cat === "Iced Coffee" ? "Iced" : "Hot");
+  const [extras, setExtras] = useState<string[]>([]);
+  const [notes, setNotes] = useState("");
+
+  const sizes = [{ l: "Small", adj: -0.50 }, { l: "Medium", adj: 0 }, { l: "Large", adj: 0.75 }];
+  const milks = ["Whole Milk", "Oat Milk", "Almond Milk", "Skim Milk", "Soy Milk", "No Milk"];
+  const sweets = ["None", "Light", "Normal", "Extra"];
+  const temps = item.cat === "Iced Coffee" ? ["Iced", "Blended"] : ["Hot", "Iced", "Warm"];
+  const addOns = [{ l: "Extra Shot", adj: 0.75 }, { l: "Vanilla Syrup", adj: 0.50 }, { l: "Caramel Drizzle", adj: 0.50 }, { l: "Whipped Cream", adj: 0.75 }, { l: "Oat Milk Foam", adj: 0.75 }];
+
+  const sizeAdj = sizes.find(s => s.l === size)?.adj || 0;
+  const extrasAdj = extras.reduce((s, e) => s + (addOns.find(a => a.l === e)?.adj || 0), 0);
+  const finalPrice = item.price + sizeAdj + extrasAdj;
+
+  const toggleExtra = (e: string) => setExtras(x => x.includes(e) ? x.filter(i => i !== e) : [...x, e]);
+  const handleAdd = () => {
+    onAdd({ ...item, price: finalPrice, customizations: { size, milk, sweet, temp, extras, notes } });
+    onClose();
+  };
+
+  return (
+    <Modal transparent animationType="slide">
+      <View style={s.overlay}>
+        <ScrollView style={{ width: "100%" }} contentContainerStyle={{ alignItems: "center", padding: 20 }}>
+          <View style={[s.modalBox, { backgroundColor: T.card, width: "100%", maxWidth: 400, maxHeight: "90%" }]}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <View>
+                <Text style={[s.modalTitle, { color: T.text, marginTop: 0, textAlign: "left" }]}>{item.name}</Text>
+                <Text style={{ color: accent, fontWeight: "800", fontSize: 18, marginTop: 4 }}>${finalPrice.toFixed(2)}</Text>
+              </View>
+              <TouchableOpacity onPress={onClose}>
+                <Text style={{ color: T.subtext, fontSize: 20 }}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <Text style={{ fontWeight: "700", fontSize: 14, color: T.text, marginBottom: 10 }}>Size</Text>
+              <View style={{ flexDirection: "row", gap: 8, marginBottom: 16 }}>
+                {sizes.map(s => (
+                  <TouchableOpacity key={s.l} onPress={() => setSize(s.l)}
+                    style={{ flex: 1, backgroundColor: size === s.l ? accent : T.surface2, borderRadius: 8, padding: 10, alignItems: "center" }}>
+                    <Text style={{ color: size === s.l ? "#111" : T.text, fontWeight: "700", fontSize: 12 }}>
+                      {s.l}{s.adj !== 0 ? ` (${s.adj > 0 ? "+" : ""}$${Math.abs(s.adj).toFixed(2)})` : ""}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              {item.cat !== "Food" && (
+                <>
+                  <Text style={{ fontWeight: "700", fontSize: 14, color: T.text, marginBottom: 10 }}>Temperature</Text>
+                  <View style={{ flexDirection: "row", gap: 8, marginBottom: 16 }}>
+                    {temps.map(t => (
+                      <TouchableOpacity key={t} onPress={() => setTemp(t)}
+                        style={{ backgroundColor: temp === t ? accent : T.surface2, borderRadius: 8, padding: 10, alignItems: "center" }}>
+                        <Text style={{ color: temp === t ? "#111" : T.text, fontWeight: "700", fontSize: 12 }}>
+                          {t === "Hot" ? "🔥" : t === "Iced" ? "🧊" : "☕"} {t}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                  <Text style={{ fontWeight: "700", fontSize: 14, color: T.text, marginBottom: 10 }}>Milk</Text>
+                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
+                    {milks.map(m => (
+                      <TouchableOpacity key={m} onPress={() => setMilk(m)}
+                        style={{ backgroundColor: milk === m ? accent : T.surface2, borderRadius: 8, padding: 10, alignItems: "center", minWidth: 80 }}>
+                        <Text style={{ color: milk === m ? "#111" : T.text, fontWeight: "700", fontSize: 12 }}>{m}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                  <Text style={{ fontWeight: "700", fontSize: 14, color: T.text, marginBottom: 10 }}>Sweetness</Text>
+                  <View style={{ flexDirection: "row", gap: 8, marginBottom: 16 }}>
+                    {sweets.map(s => (
+                      <TouchableOpacity key={s} onPress={() => setSweet(s)}
+                        style={{ flex: 1, backgroundColor: sweet === s ? accent : T.surface2, borderRadius: 8, padding: 10, alignItems: "center" }}>
+                        <Text style={{ color: sweet === s ? "#111" : T.text, fontWeight: "700", fontSize: 12 }}>{s}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </>
+              )}
+              <Text style={{ fontWeight: "700", fontSize: 14, color: T.text, marginBottom: 10 }}>Add-ons</Text>
+              {addOns.map(a => (
+                <TouchableOpacity key={a.l} onPress={() => toggleExtra(a.l)}
+                  style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 12, borderRadius: 10, backgroundColor: extras.includes(a.l) ? `${accent}22` : T.surface2, borderWidth: 1.5, borderColor: extras.includes(a.l) ? accent : T.border, marginBottom: 8 }}>
+                  <Text style={{ fontSize: 13, color: T.text, fontWeight: extras.includes(a.l) ? "700" : "400" }}>{a.l}</Text>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                    <Text style={{ color: T.subtext, fontSize: 12 }}>+${a.adj.toFixed(2)}</Text>
+                    <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: extras.includes(a.l) ? accent : T.surface2, borderWidth: 1.5, borderColor: extras.includes(a.l) ? accent : T.border, alignItems: "center", justifyContent: "center" }}>
+                      <Text style={{ fontSize: 12, color: "#111" }}>{extras.includes(a.l) ? "✓" : ""}</Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              ))}
+              <Text style={{ fontWeight: "700", fontSize: 14, color: T.text, marginBottom: 10 }}>Special Instructions</Text>
+              <TextInput value={notes} onChangeText={setNotes} placeholder="Any special requests? (optional)"
+                placeholderTextColor={T.subtext} multiline numberOfLines={3}
+                style={[s.input, { backgroundColor: T.inputBg, borderColor: T.inputBorder, color: T.inputText, height: 70, textAlignVertical: "top" }]} />
+              <View style={{ backgroundColor: T.surface2, borderRadius: 10, padding: 14, marginTop: 16, marginBottom: 16 }}>
+                <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 4 }}>
+                  <Text style={{ color: T.subtext, fontSize: 12 }}>Base</Text>
+                  <Text style={{ color: T.subtext, fontSize: 12 }}>${item.price.toFixed(2)}</Text>
+                </View>
+                {sizeAdj !== 0 && (
+                  <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 4 }}>
+                    <Text style={{ color: T.subtext, fontSize: 12 }}>{size}</Text>
+                    <Text style={{ color: T.subtext, fontSize: 12 }}>{sizeAdj > 0 ? "+" : "-"}${Math.abs(sizeAdj).toFixed(2)}</Text>
+                  </View>
+                )}
+                {extras.map(e => (
+                  <View key={e} style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 4 }}>
+                    <Text style={{ color: T.subtext, fontSize: 12 }}>{e}</Text>
+                    <Text style={{ color: T.subtext, fontSize: 12 }}>+${(addOns.find(a => a.l === e)?.adj || 0).toFixed(2)}</Text>
+                  </View>
+                ))}
+                <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 8, borderTopWidth: 1, borderTopColor: T.border, paddingTop: 8 }}>
+                  <Text style={{ fontWeight: "900", fontSize: 14, color: T.text }}>Total</Text>
+                  <Text style={{ fontWeight: "900", fontSize: 14, color: accent }}>${finalPrice.toFixed(2)}</Text>
+                </View>
+              </View>
+              <GoldBtn label={`Add to Cart — $${finalPrice.toFixed(2)}`} onPress={handleAdd} style={{ marginBottom: 20 }} />
+            </ScrollView>
+          </View>
+        </ScrollView>
+      </View>
+    </Modal>
+  );
+}
+
 // ── Customer App ──────────────────────────────────────────────────────
 function CustomerApp({ user, setUser, onLogout, isDark, setIsDark, sharedOrders, setSharedOrders, menu, locations }: any) {
   const T = getTheme(isDark);
@@ -887,6 +1019,7 @@ function CustomerApp({ user, setUser, onLogout, isDark, setIsDark, sharedOrders,
   const [showPayment, setShowPayment] = useState(false);
   const [selectedLoc, setSelectedLoc] = useState(locations[0]?.id ?? 1);
   const [isDriveThru, setIsDriveThru] = useState(false);
+  const [customizing, setCustomizing] = useState<any>(null);
 
   const cats  = ["Popular","Hot Coffee","Iced Coffee","Food"];
   const shown = filter==="Popular"
@@ -942,6 +1075,7 @@ function CustomerApp({ user, setUser, onLogout, isDark, setIsDark, sharedOrders,
       {receipt    && <ReceiptModal order={receipt} onClose={()=>setReceipt(null)} T={T} />}
       {driveCode  && <DriveThruModal code={driveCode.code} order={driveCode.order} onClose={()=>setDriveCode(null)} T={T} />}
       {showPayment && <PaymentModal total={total} onPay={handlePay} onClose={()=>setShowPayment(false)} user={user} T={T} />}
+      {customizing && <CustomizeModal item={customizing} onAdd={(item:any)=>setCart((c:any)=>[...c,item])} onClose={()=>setCustomizing(null)} T={T} />}
 
       <Modal transparent visible={cartOpen} animationType="slide">
         <View style={s.overlay}>
@@ -1012,7 +1146,7 @@ function CustomerApp({ user, setUser, onLogout, isDark, setIsDark, sharedOrders,
                   <Text style={[s.menuCat, { color:T.subtext }]}>{item.cat}</Text>
                   <View style={{ flexDirection:"row", justifyContent:"space-between", alignItems:"center", marginTop:8 }}>
                     <Text style={s.menuPrice}>${item.price.toFixed(2)}</Text>
-                    <GoldBtn label="+ Add" onPress={()=>setCart((c:any)=>[...c,item])} style={{ paddingVertical:7, paddingHorizontal:14 }} />
+                    <GoldBtn label="+ Add" onPress={()=>setCustomizing(item)} style={{ paddingVertical:7, paddingHorizontal:14 }} />
                   </View>
                 </View>
               </Card>
@@ -1031,7 +1165,7 @@ function CustomerApp({ user, setUser, onLogout, isDark, setIsDark, sharedOrders,
                   <Text style={[s.menuName, { color:T.text }]}>{item.name}</Text>
                   <View style={{ flexDirection:"row", justifyContent:"space-between", alignItems:"center", marginTop:8 }}>
                     <Text style={s.menuPrice}>${item.price.toFixed(2)}</Text>
-                    <GoldBtn label="+ Add" onPress={()=>setCart((c:any)=>[...c,item])} style={{ paddingVertical:7, paddingHorizontal:14 }} />
+                    <GoldBtn label="+ Add" onPress={()=>setCustomizing(item)} style={{ paddingVertical:7, paddingHorizontal:14 }} />
                   </View>
                 </View>
               </Card>
