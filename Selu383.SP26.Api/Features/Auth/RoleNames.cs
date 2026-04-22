@@ -5,4 +5,5 @@ public static class RoleNames
     public const string Admin = nameof(Admin);
     public const string User = nameof(User);
     public const string Staff = nameof(Staff);
+    public const string Manager = nameof(Manager);
 }
