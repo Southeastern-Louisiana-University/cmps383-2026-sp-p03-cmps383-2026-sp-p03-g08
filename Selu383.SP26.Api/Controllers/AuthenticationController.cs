@@ -66,7 +66,9 @@ public class AuthenticationController : ControllerBase
             Id = x.Id,
             UserName = x.UserName!,
             Roles = x.UserRoles.Select(y => y.Role!.Name).ToArray()!,
-            Points = 0
+            Points = 0,
+            LocationId = x.LocationId,
+            Name = x.Name
         });
     }
 
