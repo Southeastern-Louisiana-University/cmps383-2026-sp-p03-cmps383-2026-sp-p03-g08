@@ -10,5 +10,6 @@ public class Order
     [Column(TypeName = "decimal(18,2)")]
     public decimal Total { get; set; }
     public string Status { get; set; } = "Pending";
+    public string Type { get; set; } = "dine-in";
     public virtual ICollection<OrderItem> Items { get; set; } = new List<OrderItem>();
 }
