@@ -14,11 +14,13 @@ public class UsersController : ControllerBase
 {
     private readonly UserManager<User> userManager;
     private readonly DataContext dbContext;
+    private readonly RoleManager<Role> roleManager;
 
-    public UsersController(UserManager<User> userManager, DataContext dbContext)
+    public UsersController(UserManager<User> userManager, DataContext dbContext, RoleManager<Role> roleManager)
     {
         this.userManager = userManager;
         this.dbContext = dbContext;
+        this.roleManager = roleManager;
     }
 
     [HttpGet]
@@ -174,35 +176,61 @@ public class UsersController : ControllerBase
     [Authorize(Roles = RoleNames.Admin)]
     public async Task<ActionResult> FixProdRoles()
     {
-        var staffUser = await userManager.FindByNameAsync("staff@lions.com");
-        if (staffUser != null)
+        // Ensure all roles exist
+        foreach (var roleName in new[] { RoleNames.Admin, RoleNames.User, RoleNames.Staff, RoleNames.Manager })
         {
-            var staffRoles = await userManager.GetRolesAsync(staffUser);
-            await userManager.RemoveFromRolesAsync(staffUser, staffRoles);
-            await userManager.AddToRoleAsync(staffUser, RoleNames.Staff);
+            if (!await roleManager.RoleExistsAsync(roleName))
+                await roleManager.CreateAsync(new Role { Name = roleName });
         }
 
+        // Fix existing accounts
         var adminUser = await userManager.FindByNameAsync("admin@lions.com");
         if (adminUser != null)
         {
-            var adminRoles = await userManager.GetRolesAsync(adminUser);
-            await userManager.RemoveFromRolesAsync(adminUser, adminRoles);
+            var roles = await userManager.GetRolesAsync(adminUser);
+            await userManager.RemoveFromRolesAsync(adminUser, roles);
             await userManager.AddToRoleAsync(adminUser, RoleNames.Admin);
         }
 
-        // Create manager if doesn't exist, fix role if does
-        var managerUser = await userManager.FindByNameAsync("manager@lions.com");
-        if (managerUser == null)
+        var guestUser = await userManager.FindByNameAsync("guest@lions.com");
+        if (guestUser != null)
         {
-            managerUser = new User { UserName = "manager@lions.com", Email = "manager@lions.com" };
-            await userManager.CreateAsync(managerUser, "Password123!");
+            var roles = await userManager.GetRolesAsync(guestUser);
+            await userManager.RemoveFromRolesAsync(guestUser, roles);
+            await userManager.AddToRoleAsync(guestUser, RoleNames.User);
         }
-        var managerRoles = await userManager.GetRolesAsync(managerUser);
-        await userManager.RemoveFromRolesAsync(managerUser, managerRoles);
-        await userManager.AddToRoleAsync(managerUser, RoleNames.Manager);
 
-    return Ok("Done");
+        // Create location-specific staff and manager accounts
+        var locationAccounts = new[]
+        {
+            new { UserName = "staff.hammond@lions.com",     Email = "staff.hammond@lions.com",     Role = RoleNames.Staff,   LocationId = 1, Name = "Sara L."  },
+            new { UserName = "staff.newyork@lions.com",     Email = "staff.newyork@lions.com",     Role = RoleNames.Staff,   LocationId = 2, Name = "Carol T." },
+            new { UserName = "staff.neworleans@lions.com",  Email = "staff.neworleans@lions.com",  Role = RoleNames.Staff,   LocationId = 3, Name = "Frank B." },
+            new { UserName = "manager.hammond@lions.com",   Email = "manager.hammond@lions.com",   Role = RoleNames.Manager, LocationId = 1, Name = "Mike A."  },
+            new { UserName = "manager.newyork@lions.com",   Email = "manager.newyork@lions.com",   Role = RoleNames.Manager, LocationId = 2, Name = "David M." },
+            new { UserName = "manager.neworleans@lions.com",Email = "manager.neworleans@lions.com",Role = RoleNames.Manager, LocationId = 3, Name = "Eve S."   },
+        };
+
+        foreach (var account in locationAccounts)
+        {
+            var user = await userManager.FindByNameAsync(account.UserName);
+            if (user == null)
+            {
+                user = new User { UserName = account.UserName, Email = account.Email, LocationId = account.LocationId, Name = account.Name };
+                var result = await userManager.CreateAsync(user, "Password123!");
+                if (!result.Succeeded) continue;
+            }
+            else
+            {
+                user.LocationId = account.LocationId;
+                user.Name = account.Name;
+                await userManager.UpdateAsync(user);
+            }
+            var roles = await userManager.GetRolesAsync(user);
+            await userManager.RemoveFromRolesAsync(user, roles);
+            await userManager.AddToRoleAsync(user, account.Role);
+        }
+
+        return Ok("Done");
     }
 }
-
-
