@@ -739,6 +739,7 @@ function CustomerApp({ user, setUser, page, setPage, sharedOrders, setSharedOrde
         credentials: "include",
         body: JSON.stringify({
           locationId: selectedLoc,
+          type: isDriveThruCheckout ? "drive-thru" : "dine-in",
           items: cart.map(i => ({ name: i.name, price: i.price })),
           total,
         }),
@@ -1017,7 +1018,8 @@ function StaffApp({ user, page, setPage, sharedOrders, setSharedOrders }:any) {
   const [staffList, setStaffList] = useState<any[]>([]);
 
   useEffect(() => {
-    fetch("/api/orders", { credentials: "include" })
+    const today = new Date().toISOString().split("T")[0];
+    fetch(`/api/orders?date=${today}`, { credentials: "include" })
       .then(r => r.json())
       .then(data => setApiOrders(Array.isArray(data) ? data : []))
       .catch(console.error);
