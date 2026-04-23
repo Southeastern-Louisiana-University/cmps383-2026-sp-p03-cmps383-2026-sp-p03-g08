@@ -10,5 +10,7 @@ public class Location
     public int TableCount { get; set; }
     public int? ManagerId { get; set; }
     public virtual User? Manager { get; set; }
-    public Dictionary<string, bool> Settings { get; set; } = new();
+
+    // Stored as JSON string in the database
+    public string SettingsJson { get; set; } = "{}";
 }

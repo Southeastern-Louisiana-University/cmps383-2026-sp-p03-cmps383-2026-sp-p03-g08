@@ -10,5 +10,9 @@ public class LocationConfiguration : IEntityTypeConfiguration<Location>
         builder.Property(x => x.Name)
             .IsRequired()
             .HasMaxLength(120);
+
+        builder.Property(x => x.SettingsJson)
+            .HasColumnName("Settings")
+            .HasDefaultValue("{}");
     }
 }
