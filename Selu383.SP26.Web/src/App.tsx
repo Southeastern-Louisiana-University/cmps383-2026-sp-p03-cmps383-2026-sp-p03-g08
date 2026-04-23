@@ -62,10 +62,14 @@ const LOCATIONS = [
 ];
 
 const USERS = [
-  { id:"c", email:"guest@lions.com",   password:"Password123!", role:"customer", name:"John",  points:0, location:1, lastOrder:null },
-  { id:"s", email:"staff@lions.com",   password:"Password123!", role:"staff",    name:"Sara",  points:0, location:1, lastOrder:null },
-  { id:"m", email:"manager@lions.com", password:"Password123!", role:"manager",  name:"Mike",  points:0, location:1, lastOrder:null },
-  { id:"a", email:"admin@lions.com",   password:"Password123!", role:"admin",    name:"Alex",  points:0, location:0, lastOrder:null },
+  { id:"c",  email:"guest@lions.com",           password:"Password123!", role:"customer", name:"John",    points:0, location:1, lastOrder:null },
+  { id:"s1", email:"staff.hammond@lions.com",   password:"Password123!", role:"staff",    name:"Staff H", points:0, location:1, lastOrder:null },
+  { id:"s2", email:"staff.newyork@lions.com",   password:"Password123!", role:"staff",    name:"Staff NY",points:0, location:2, lastOrder:null },
+  { id:"s3", email:"staff.neworleans@lions.com",password:"Password123!", role:"staff",    name:"Staff NO",points:0, location:3, lastOrder:null },
+  { id:"m1", email:"manager.hammond@lions.com", password:"Password123!", role:"manager",  name:"Mgr H",   points:0, location:1, lastOrder:null },
+  { id:"m2", email:"manager.newyork@lions.com", password:"Password123!", role:"manager",  name:"Mgr NY",  points:0, location:2, lastOrder:null },
+  { id:"m3", email:"manager.neworleans@lions.com",password:"Password123!",role:"manager", name:"Mgr NO",  points:0, location:3, lastOrder:null },
+  { id:"a",  email:"admin@lions.com",           password:"Password123!", role:"admin",    name:"Alex",    points:0, location:0, lastOrder:null },
 ];
 
 const STATUS_NEXT  = { Pending:"Preparing", Preparing:"Ready", Ready:"Done" } as Record<string,string>;
@@ -1003,7 +1007,6 @@ function ReservationsTab({ isMobile }:any) {
   );
 }
 
-// ── StaffApp — wired to real backend ──────────────────────────────────
 function StaffApp({ user, page, setPage, sharedOrders, setSharedOrders }:any) {
   const T = useTheme();
   const isMobile = useIsMobile();
@@ -1011,11 +1014,17 @@ function StaffApp({ user, page, setPage, sharedOrders, setSharedOrders }:any) {
   const userLocation = LOCATIONS.find(l=>l.id===user.location)?.name||"Hammond";
 
   const [apiOrders, setApiOrders] = useState<any[]>([]);
+  const [staffList, setStaffList] = useState<any[]>([]);
 
   useEffect(() => {
     fetch("/api/orders", { credentials: "include" })
       .then(r => r.json())
       .then(data => setApiOrders(Array.isArray(data) ? data : []))
+      .catch(console.error);
+
+    fetch("/api/users", { credentials: "include" })
+      .then(r => r.json())
+      .then(data => setStaffList(Array.isArray(data) ? data : []))
       .catch(console.error);
   }, []);
 
@@ -1034,6 +1043,10 @@ function StaffApp({ user, page, setPage, sharedOrders, setSharedOrders }:any) {
   };
 
   const myOrders = apiOrders.filter((o: any) => o.status !== "Done");
+  const locationStaff = staffList.filter((s: any) =>
+    s.roles?.some((r: string) => r === "Staff" || r === "Manager") &&
+    s.locationId === user.location
+  );
 
   return (
     <div style={{ background:T.bg, minHeight:"100vh" }}>
@@ -1096,10 +1109,10 @@ function StaffApp({ user, page, setPage, sharedOrders, setSharedOrders }:any) {
           <div>
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14, marginBottom:20 }}>
               {[
-                {l:"Today's Orders", v:myOrders.length,                                                                    i:"📦"},
-                {l:"Revenue Today",  v:"$"+myOrders.reduce((s:number,o:any)=>s+(o.total||0),0).toFixed(0),                i:"💰"},
-                {l:"Drive-Thru",     v:myOrders.filter((o:any)=>o.type==="drive-thru").length,                             i:"🚗"},
-                {l:"Staff On Shift", v:STAFF_ROSTER.filter(s=>s.loc===userLocation&&s.status==="On Shift").length,         i:"👥"},
+                {l:"Today's Orders", v:myOrders.length,                                                          i:"📦"},
+                {l:"Revenue Today",  v:"$"+myOrders.reduce((s:number,o:any)=>s+(o.total||0),0).toFixed(0),      i:"💰"},
+                {l:"Drive-Thru",     v:myOrders.filter((o:any)=>o.type==="drive-thru").length,                   i:"🚗"},
+                {l:"Staff On Shift", v:locationStaff.length,                                                     i:"👥"},
               ].map((s,i)=>(
                 <Card key={i} style={{ padding:16, textAlign:"center" }}>
                   <div style={{ fontSize:28 }}>{s.i}</div>
@@ -1124,15 +1137,21 @@ function StaffApp({ user, page, setPage, sharedOrders, setSharedOrders }:any) {
             }
             <Card style={{ padding:20 }}>
               <div style={{ fontWeight:800, fontSize:14, color:T.text, marginBottom:14 }}>👥 Staff at {userLocation}</div>
-              {STAFF_ROSTER.filter(s=>s.loc===userLocation).map((s,i,arr)=>(
-                <div key={i} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 0", borderBottom:i<arr.length-1?`1px solid ${T.border}`:"none" }}>
-                  <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                    <div style={{ width:34, height:34, borderRadius:"50%", background:T.surface2, display:"flex", alignItems:"center", justifyContent:"center" }}>👤</div>
-                    <div><div style={{ fontWeight:700, color:T.text }}>{s.n}</div><div style={{ color:T.subtext, fontSize:12 }}>{s.role}</div></div>
+              {locationStaff.length===0
+                ? <div style={{ color:T.subtext, fontSize:13, textAlign:"center", padding:"16px 0" }}>No staff found for this location</div>
+                : locationStaff.map((s:any, i:number) => (
+                  <div key={i} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 0", borderBottom:i<locationStaff.length-1?`1px solid ${T.border}`:"none" }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                      <div style={{ width:34, height:34, borderRadius:"50%", background:T.surface2, display:"flex", alignItems:"center", justifyContent:"center" }}>👤</div>
+                      <div>
+                        <div style={{ fontWeight:700, color:T.text }}>{s.name || s.userName}</div>
+                        <div style={{ color:T.subtext, fontSize:12 }}>{s.roles?.[0]}</div>
+                      </div>
+                    </div>
+                    <span style={{ background:"#dcfce7", color:"#16a34a", fontSize:11, fontWeight:700, padding:"3px 10px", borderRadius:20 }}>On Shift</span>
                   </div>
-                  <span style={{ background:s.status==="On Shift"?"#dcfce7":"#fef3c7", color:s.status==="On Shift"?"#16a34a":"#92400e", fontSize:11, fontWeight:700, padding:"3px 10px", borderRadius:20 }}>{s.status}</span>
-                </div>
-              ))}
+                ))
+              }
             </Card>
           </div>
         )}

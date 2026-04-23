@@ -22,7 +22,7 @@ public class UsersController : ControllerBase
     }
 
     [HttpGet]
-    [Authorize(Roles = RoleNames.Admin)]
+    [Authorize(Roles = RoleNames.Admin + "," + RoleNames.Manager)]
     public async Task<ActionResult<List<UserDto>>> GetAll()
     {
         var users = await userManager.Users
@@ -40,6 +40,8 @@ public class UsersController : ControllerBase
                 UserName = user.UserName!,
                 Roles = user.UserRoles.Select(ur => ur.Role.Name!).ToArray(),
                 Points = points?.Points ?? 0,
+                LocationId = user.LocationId,
+                Name = user.Name,
             });
         }
 
@@ -188,9 +190,19 @@ public class UsersController : ControllerBase
             await userManager.AddToRoleAsync(adminUser, RoleNames.Admin);
         }
 
-        return Ok("Done");
-    }
+        // Create manager if doesn't exist, fix role if does
+        var managerUser = await userManager.FindByNameAsync("manager@lions.com");
+        if (managerUser == null)
+        {
+            managerUser = new User { UserName = "manager@lions.com", Email = "manager@lions.com" };
+            await userManager.CreateAsync(managerUser, "Password123!");
+        }
+        var managerRoles = await userManager.GetRolesAsync(managerUser);
+        await userManager.RemoveFromRolesAsync(managerUser, managerRoles);
+        await userManager.AddToRoleAsync(managerUser, RoleNames.Manager);
 
+    return Ok("Done");
+    }
 }
 
 

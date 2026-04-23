@@ -85,12 +85,27 @@ public class OrdersController : ControllerBase
     }
 
     [HttpGet]
-    [Authorize(Roles = "Staff,Admin")]
+    [Authorize(Roles = "Staff,Admin,Manager")]
     public async Task<ActionResult<List<OrderDto>>> GetAllOrders()
     {
-        var orders = await dbContext.Orders
+        var currentUser = await userManager.FindByNameAsync(User.Identity!.Name!);
+        if (currentUser == null) return Unauthorized();
+
+        var roles = await userManager.GetRolesAsync(currentUser);
+        var isAdmin = roles.Contains(RoleNames.Admin);
+
+        var query = dbContext.Orders
             .Include(o => o.Items)
             .OrderByDescending(o => o.CreatedAt)
+            .AsQueryable();
+
+        // Staff and manager only see orders for their location
+        if (!isAdmin && currentUser.LocationId.HasValue)
+        {
+            query = query.Where(o => o.LocationId == currentUser.LocationId.Value);
+        }
+
+        var orders = await query
             .Select(o => new OrderDto
             {
                 Id = o.Id,
@@ -106,7 +121,7 @@ public class OrdersController : ControllerBase
             .ToListAsync();
 
         return Ok(orders);
-    }
+        }
 
     [HttpPut("{id}/status")]
     [Authorize(Roles = "Staff,Admin")]
