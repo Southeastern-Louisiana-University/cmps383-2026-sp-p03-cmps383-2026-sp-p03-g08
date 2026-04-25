@@ -8,7 +8,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 const { width } = Dimensions.get("window");
 const accent  = "#fcd34d";
-const gold    = "#C8973A";
 const API_URL = "https://selu383-sp26-p03-g08.azurewebsites.net";
 
 const logoImg = require("../assets/logo/logo.png");
@@ -18,36 +17,22 @@ const heroImg = require("../assets/logo/hero.jpg");
 const api = {
   login: async (userName: string, password: string) => {
     const res = await fetch(`${API_URL}/api/authentication/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ userName, password }),
+      method: "POST", headers: { "Content-Type": "application/json" },
+      credentials: "include", body: JSON.stringify({ userName, password }),
     });
     if (!res.ok) throw new Error("Invalid credentials.");
     return res.json();
   },
   register: async (userName: string, email: string, password: string) => {
     const res = await fetch(`${API_URL}/api/authentication/register`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ userName, email, password }),
+      method: "POST", headers: { "Content-Type": "application/json" },
+      credentials: "include", body: JSON.stringify({ userName, email, password }),
     });
     if (!res.ok) throw new Error("Registration failed. Username may already be taken.");
     return res.json();
   },
   logout: async () => {
-    await fetch(`${API_URL}/api/authentication/logout`, {
-      method: "POST",
-      credentials: "include",
-    });
-  },
-  me: async () => {
-    const res = await fetch(`${API_URL}/api/authentication/me`, {
-      credentials: "include",
-    });
-    if (!res.ok) return null;
-    return res.json();
+    await fetch(`${API_URL}/api/authentication/logout`, { method: "POST", credentials: "include" });
   },
   getMenu: async () => {
     const res = await fetch(`${API_URL}/api/menu`);
@@ -61,36 +46,22 @@ const api = {
   },
   createOrder: async (locationId: number, total: number, items: any[]) => {
     const res = await fetch(`${API_URL}/api/orders`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+      method: "POST", headers: { "Content-Type": "application/json" },
       credentials: "include",
-      body: JSON.stringify({
-        locationId,
-        total,
-        items: items.map(i => ({ name: i.name, price: i.price })),
-      }),
+      body: JSON.stringify({ locationId, total, items: items.map(i => ({ name: i.name, price: i.price })) }),
     });
     if (!res.ok) throw new Error("Order failed.");
     return res.json();
   },
-  getMyOrders: async () => {
-    const res = await fetch(`${API_URL}/api/orders/my`, {
-      credentials: "include",
-    });
-    if (!res.ok) return [];
-    return res.json();
-  },
   getPoints: async () => {
-    const res = await fetch(`${API_URL}/api/users/points`, {
-      credentials: "include",
-    });
+    const res = await fetch(`${API_URL}/api/users/points`, { credentials: "include" });
     if (!res.ok) return 0;
     const data = await res.json();
     return data.points ?? 0;
   },
 };
 
-// ── Image/Category mapping (frontend display only) ────────────────────
+// ── Image/Category mapping ────────────────────────────────────────────
 const MENU_IMAGES: Record<string, { img: string; cat: string; popular: boolean; orders: number }> = {
   "Classic Latte":    { img:"https://images.unsplash.com/photo-1561882468-9110e03e0f78?w=400&q=80", cat:"Hot Coffee",  popular:true,  orders:142 },
   "Cappuccino":       { img:"https://images.unsplash.com/photo-1572442388796-11668a67e53d?w=400&q=80", cat:"Hot Coffee",  popular:true,  orders:118 },
@@ -101,12 +72,9 @@ const MENU_IMAGES: Record<string, { img: string; cat: string; popular: boolean; 
   "Americano":        { img:"https://images.unsplash.com/photo-1551030173-122aabc4489c?w=400&q=80", cat:"Hot Coffee",  popular:false, orders:76  },
   "Blueberry Muffin": { img:"https://images.unsplash.com/photo-1607958996333-41aef7caefaa?w=400&q=80", cat:"Food",        popular:false, orders:58  },
 };
-
 const DEFAULT_MENU_META = { img:"https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=400&q=80", cat:"Other", popular:false, orders:0 };
-
 function enrichMenuItem(item: any) {
-  const meta = MENU_IMAGES[item.name] ?? DEFAULT_MENU_META;
-  return { ...item, ...meta };
+  return { ...item, ...(MENU_IMAGES[item.name] ?? DEFAULT_MENU_META) };
 }
 
 // ── Theme ─────────────────────────────────────────────────────────────
@@ -128,7 +96,36 @@ function getTheme(isDark: boolean) {
   };
 }
 
-// ── Fallback static data (used only if API fails) ─────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────
+function toCST(dateStr: string | Date) {
+  const date = typeof dateStr === "string" ? new Date(dateStr) : dateStr;
+  return date.toLocaleString("en-US", {
+    timeZone: "America/Chicago", month:"short", day:"numeric",
+    hour:"numeric", minute:"2-digit", hour12:true,
+  });
+}
+
+function getLocName(o: any, locations: any[]) {
+  if (o.locationName) return o.locationName;
+  if (o.location && isNaN(Number(o.location))) return o.location;
+  if (o.locationId) return locations.find((l:any) => l.id === o.locationId)?.name ?? "Hammond";
+  return "Hammond";
+}
+
+function getRoleKey(roles: string[] | string | undefined): string {
+  if (!roles) return "customer";
+  const arr = Array.isArray(roles) ? roles : [roles];
+  if (arr.some(r => r.toLowerCase() === "admin"))   return "admin";
+  if (arr.some(r => r.toLowerCase() === "manager")) return "manager";
+  if (arr.some(r => r.toLowerCase() === "staff"))   return "staff";
+  return "customer";
+}
+
+const ptsForSpend  = (amt: number) => Math.floor(amt * 10);
+const ptsCostFor   = (amt: number) => Math.ceil(amt * 100);
+const ptsToDollars = (pts: number) => (pts / 100).toFixed(2);
+
+// ── Fallback data ─────────────────────────────────────────────────────
 const FALLBACK_MENU = [
   { id:1, name:"Classic Latte",    price:4.50, description:"" },
   { id:2, name:"Cappuccino",       price:4.75, description:"" },
@@ -141,9 +138,7 @@ const FALLBACK_MENU = [
 ].map(enrichMenuItem);
 
 const FALLBACK_LOCATIONS = [
-  { id:1, name:"Hammond"     },
-  { id:2, name:"New York"    },
-  { id:3, name:"New Orleans" },
+  { id:1, name:"Hammond" }, { id:2, name:"New York" }, { id:3, name:"New Orleans" },
 ];
 
 const STAFF_ROSTER = [
@@ -159,40 +154,6 @@ const STAFF_ROSTER = [
 const STATUS_NEXT  = { Pending:"Preparing", Preparing:"Ready", Ready:"Done" } as Record<string,string>;
 const STATUS_COLOR = { Pending:"#f59e0b", Preparing:"#3b82f6", Ready:"#16a34a", Done:"#9ca3af" } as Record<string,string>;
 const ROLE_COLOR   = { customer:"#16a34a", User:"#16a34a", staff:"#2563eb", Staff:"#2563eb", manager:"#7c3aed", Manager:"#7c3aed", admin:"#dc2626", Admin:"#dc2626" } as Record<string,string>;
-
-// ── Location name helper ──────────────────────────────────────────────
-function getLocName(o: any, locations: any[]) {
-  // Handles API orders (locationName), local orders (location), or locationId fallback
-  if (o.locationName) return o.locationName;
-  if (o.location && isNaN(Number(o.location))) return o.location;
-  if (o.locationId) return locations.find((l:any) => l.id === o.locationId)?.name ?? "Hammond";
-  return "Hammond";
-}
-
-const ptsForSpend  = (amt: number) => Math.floor(amt * 10);
-function toCST(dateStr: string | Date) {
-  const date = typeof dateStr === "string" ? new Date(dateStr) : dateStr;
-  return date.toLocaleString("en-US", {
-    timeZone: "America/Chicago",
-    month:  "short",
-    day:    "numeric",
-    hour:   "numeric",
-    minute: "2-digit",
-    hour12: true,
-  });
-}
-
-const ptsCostFor   = (amt: number) => Math.ceil(amt * 100);
-const ptsToDollars = (pts: number) => (pts / 100).toFixed(2);
-
-function getRoleKey(roles: string[] | string | undefined): string {
-  if (!roles) return "customer";
-  const arr = Array.isArray(roles) ? roles : [roles];
-  if (arr.some(r => r.toLowerCase() === "admin"))   return "admin";
-  if (arr.some(r => r.toLowerCase() === "manager")) return "manager";
-  if (arr.some(r => r.toLowerCase() === "staff"))   return "staff";
-  return "customer";
-}
 
 // ── Shared Components ─────────────────────────────────────────────────
 function Card({ children, style, T }: any) {
@@ -246,9 +207,9 @@ function PaymentModal({ total, onPay, onClose, user, T }: any) {
   const [method, setMethod] = useState("card");
   const [card,   setCard]   = useState({ num:"", exp:"", cvv:"", name:"" });
   const [err,    setErr]    = useState("");
-  const tax      = (total * 0.0875).toFixed(2);
-  const grand    = (total + parseFloat(tax)).toFixed(2);
-  const ptsCost  = ptsCostFor(total);
+  const tax     = (total * 0.0875).toFixed(2);
+  const grand   = (total + parseFloat(tax)).toFixed(2);
+  const ptsCost = ptsCostFor(total);
   const hasEnoughPts = (user?.points||0) >= ptsCost;
   const payDisabled  = method==="points" && !hasEnoughPts;
 
@@ -283,12 +244,18 @@ function PaymentModal({ total, onPay, onClose, user, T }: any) {
             </View>
             <Text style={{ fontWeight:"700", fontSize:13, color:T.text, marginBottom:10 }}>Payment Method</Text>
             <View style={{ flexDirection:"row", gap:8, marginBottom:16 }}>
-              {[{v:"card",l:"💳 Card"},{v:"points",l:"⭐ Points"},{v:"apple",l:"🍎 Apple Pay"}].map(m=>(
+              {[{v:"card",l:"💳 Card"},{v:"apple",l:"🍎 Apple Pay"}].map(m=>(
                 <TouchableOpacity key={m.v} onPress={()=>{ setMethod(m.v); setErr(""); }}
                   style={{ flex:1, backgroundColor:method===m.v?accent:T.surface2, borderRadius:8, padding:10, alignItems:"center" }}>
                   <Text style={{ color:method===m.v?"#111":T.subtext, fontWeight:"700", fontSize:11 }}>{m.l}</Text>
                 </TouchableOpacity>
               ))}
+              {!!user && (
+                <TouchableOpacity onPress={()=>{ setMethod("points"); setErr(""); }}
+                  style={{ flex:1, backgroundColor:method==="points"?accent:T.surface2, borderRadius:8, padding:10, alignItems:"center" }}>
+                  <Text style={{ color:method==="points"?"#111":T.subtext, fontWeight:"700", fontSize:11 }}>⭐ Points</Text>
+                </TouchableOpacity>
+              )}
             </View>
             {method==="card" && (
               <View>
@@ -308,7 +275,7 @@ function PaymentModal({ total, onPay, onClose, user, T }: any) {
                 </View>
               </View>
             )}
-            {method==="points" && (
+            {method==="points" && user && (
               <View style={{ backgroundColor:T.isDark?"#1a1500":"#fffbeb", borderRadius:10, padding:14,
                 borderWidth:1, borderColor:hasEnoughPts?`${accent}40`:"#fca5a5" }}>
                 <Text style={{ fontWeight:"700", color:"#92400e", fontSize:14 }}>⭐ Pay with loyalty points</Text>
@@ -318,10 +285,10 @@ function PaymentModal({ total, onPay, onClose, user, T }: any) {
                 </View>
                 <View style={s.row}>
                   <Text style={{ color:"#92400e", fontSize:13 }}>Your balance</Text>
-                  <Text style={{ color:"#92400e", fontWeight:"800", fontSize:13 }}>{(user?.points||0).toLocaleString()} pts</Text>
+                  <Text style={{ color:"#92400e", fontWeight:"800", fontSize:13 }}>{(user.points||0).toLocaleString()} pts</Text>
                 </View>
                 {!hasEnoughPts && <Text style={{ color:"#dc2626", fontSize:12, fontWeight:"700", marginTop:8 }}>
-                  ⚠️ You need {(ptsCost-(user?.points||0)).toLocaleString()} more pts.</Text>}
+                  ⚠️ You need {(ptsCost-(user.points||0)).toLocaleString()} more pts.</Text>}
               </View>
             )}
             {method==="apple" && (
@@ -345,12 +312,13 @@ function PaymentModal({ total, onPay, onClose, user, T }: any) {
 }
 
 // ── Receipt Modal ─────────────────────────────────────────────────────
-function ReceiptModal({ order, onClose, T }: any) {
+function ReceiptModal({ order, onClose, T, isGuest, onLogin }: any) {
   const tax      = (order.total * 0.0875).toFixed(2);
   const grand    = (order.total + parseFloat(tax)).toFixed(2);
   const receiptNo= "RCP-" + Math.floor(Math.random()*900000+100000);
   const usedPts  = order.payMethod === "points";
   const ptsCost  = ptsCostFor(order.total);
+  const ptsEarned = ptsForSpend(order.total);
   return (
     <Modal transparent animationType="slide">
       <View style={s.overlay}>
@@ -378,12 +346,26 @@ function ReceiptModal({ order, onClose, T }: any) {
               <Text style={{ fontWeight:"900", fontSize:16, color:T.text }}>Total Paid</Text>
               <Text style={{ fontWeight:"900", fontSize:16, color:accent }}>${grand}</Text>
             </View>
-            <View style={{ backgroundColor:T.isDark?"#1a1500":"#fffbeb", borderRadius:8, padding:10, marginTop:12, flexDirection:"row", justifyContent:"space-between" }}>
-              <Text style={{ color:"#92400e", fontWeight:"700", fontSize:13 }}>{usedPts?"⭐ Points Used":"⭐ Points Earned"}</Text>
-              <Text style={{ color:usedPts?"#dc2626":"#92400e", fontWeight:"800", fontSize:13 }}>
-                {usedPts?`-${ptsCost.toLocaleString()} pts`:`+${ptsForSpend(order.total)} pts`}
-              </Text>
-            </View>
+
+            {/* Guest signup prompt on receipt */}
+            {isGuest ? (
+              <View style={{ backgroundColor:T.isDark?"#1a1500":"#fffbeb", borderRadius:10, padding:14, marginTop:12,
+                borderWidth:1, borderColor:`${accent}60` }}>
+                <Text style={{ color:"#92400e", fontWeight:"800", fontSize:14 }}>⭐ You missed {ptsEarned} points!</Text>
+                <Text style={{ color:"#92400e", fontSize:12, marginTop:4 }}>
+                  Create a free account to earn points on every order. {ptsEarned} pts = ${ptsToDollars(ptsEarned)} toward your next order.
+                </Text>
+                <GoldBtn label="Create Free Account" onPress={onLogin} style={{ marginTop:10 }} />
+              </View>
+            ) : (
+              <View style={{ backgroundColor:T.isDark?"#1a1500":"#fffbeb", borderRadius:8, padding:10, marginTop:12, flexDirection:"row", justifyContent:"space-between" }}>
+                <Text style={{ color:"#92400e", fontWeight:"700", fontSize:13 }}>{usedPts?"⭐ Points Used":"⭐ Points Earned"}</Text>
+                <Text style={{ color:usedPts?"#dc2626":"#92400e", fontWeight:"800", fontSize:13 }}>
+                  {usedPts?`-${ptsCost.toLocaleString()} pts`:`+${ptsEarned} pts`}
+                </Text>
+              </View>
+            )}
+
             <GoldBtn label="Close" onPress={onClose} style={{ marginTop:16 }} />
           </ScrollView>
         </View>
@@ -423,7 +405,7 @@ function DriveThruModal({ code, order, onClose, T }: any) {
 }
 
 // ── App Header ────────────────────────────────────────────────────────
-function AppHeader({ user, T, isDark, setIsDark, onLogout }: any) {
+function AppHeader({ user, T, isDark, setIsDark, onLogout, onLogin, isGuest }: any) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const roleKey = getRoleKey(user?.roles ?? user?.role);
   return (
@@ -433,14 +415,19 @@ function AppHeader({ user, T, isDark, setIsDark, onLogout }: any) {
           <Image source={logoImg} style={{ width:36, height:36, borderRadius:8 }} />
           <View>
             <Text style={[s.appHeaderTitle, { color:accent }]}>Caffeinated Lions</Text>
-            {user && <Text style={[s.appHeaderSub, { color:T.subtext }]}>{user.userName ?? user.name} · ⭐ {user.points||0} pts</Text>}
+            {user && !isGuest && <Text style={[s.appHeaderSub, { color:T.subtext }]}>{user.userName ?? user.name} · ⭐ {user.points||0} pts</Text>}
+            {isGuest && <Text style={[s.appHeaderSub, { color:T.subtext }]}>Guest Mode</Text>}
           </View>
         </View>
         <View style={{ flexDirection:"row", gap:8 }}>
           <TouchableOpacity onPress={()=>setSettingsOpen(true)} style={[s.iconBtn, { borderColor:T.border }]}>
             <Text style={{ fontSize:16 }}>⚙️</Text>
           </TouchableOpacity>
-          {user && (
+          {isGuest ? (
+            <TouchableOpacity onPress={onLogin} style={[s.iconBtn, { borderColor:accent, backgroundColor:accent }]}>
+              <Text style={{ color:"#111", fontSize:11, fontWeight:"700" }}>Sign In</Text>
+            </TouchableOpacity>
+          ) : user && (
             <TouchableOpacity onPress={onLogout} style={[s.iconBtn, { borderColor:T.border }]}>
               <Text style={{ color:T.subtext, fontSize:12 }}>Logout</Text>
             </TouchableOpacity>
@@ -457,7 +444,7 @@ function AppHeader({ user, T, isDark, setIsDark, onLogout }: any) {
                   <Text style={{ color:T.subtext, fontSize:20 }}>✕</Text>
                 </TouchableOpacity>
               </View>
-              {user && (
+              {user && !isGuest && (
                 <View style={{ backgroundColor:T.surface2, borderRadius:12, padding:14, marginBottom:16, flexDirection:"row", alignItems:"center" }}>
                   <View style={{ width:44, height:44, borderRadius:22, backgroundColor:accent, alignItems:"center", justifyContent:"center" }}>
                     <Text style={{ fontSize:20 }}>👤</Text>
@@ -510,22 +497,19 @@ function PopularReel({ onOrder, T, menu }: any) {
   return (
     <View style={{ backgroundColor:"#1a1a1a", padding:24, alignItems:"center" }}>
       <Text style={{ color:"#aaa", fontSize:11, fontWeight:"800", letterSpacing:2, marginBottom:16 }}>🔥 MOST POPULAR</Text>
-
-      {/* Crossfade — next image sits beneath, current fades out on top */}
-      <View style={{ width:width-80, height:200, borderRadius:16, overflow:"hidden", marginBottom:14 }}>
+      {/* Crossfade — dark background prevents flash in light mode */}
+      <View style={{ width:width-80, height:200, borderRadius:16, overflow:"hidden", marginBottom:14, backgroundColor:"#1a1a1a" }}>
         <Image source={{ uri:popular[next % popular.length].img }}
           style={{ position:"absolute", width:"100%", height:"100%", borderRadius:16 }} />
         <Animated.Image source={{ uri:popular[current].img }}
           style={{ position:"absolute", width:"100%", height:"100%", borderRadius:16, opacity:fade }} />
       </View>
-
       <Animated.Text style={{ color:"#fff", fontWeight:"900", fontSize:20, opacity:fade }}>
         {popular[current].name}
       </Animated.Text>
       <Animated.Text style={{ color:accent, fontSize:16, fontWeight:"700", marginTop:4, opacity:fade }}>
         ${popular[current].price.toFixed(2)}
       </Animated.Text>
-
       <View style={{ flexDirection:"row", justifyContent:"center", gap:8, marginTop:14 }}>
         {popular.map((_:any,i:number) => (
           <TouchableOpacity key={i} onPress={() => setCurrent(i)}
@@ -538,13 +522,13 @@ function PopularReel({ onOrder, T, menu }: any) {
 }
 
 // ── Guest Home ────────────────────────────────────────────────────────
-function GuestHome({ onLogin, isDark, setIsDark, menu, locations }: any) {
+function GuestHome({ onLogin, onGuestOrder, isDark, setIsDark, menu, locations }: any) {
   const T    = getTheme(isDark);
   const top3 = [...menu].sort((a:any,b:any)=>b.orders-a.orders).slice(0,3);
   return (
     <SafeAreaView style={[s.screen, { backgroundColor:T.bg }]}>
       <StatusBar barStyle={isDark?"light-content":"dark-content"} />
-      <AppHeader user={null} T={T} isDark={isDark} setIsDark={setIsDark} onLogout={null} />
+      <AppHeader user={null} T={T} isDark={isDark} setIsDark={setIsDark} onLogout={null} onLogin={onLogin} isGuest={false} />
       <ScrollView>
         <View style={s.hero}>
           <Image source={heroImg} style={s.heroBg} />
@@ -552,7 +536,10 @@ function GuestHome({ onLogin, isDark, setIsDark, menu, locations }: any) {
           <View style={s.heroContent}>
             <Text style={s.heroTitle}>Fuel Your <Text style={{ color:accent }}>Pride</Text>,{"\n"}One Sip at a Time</Text>
             <Text style={s.heroSub}>Order from your table. Skip the line.</Text>
-            <GoldBtn label="Order Now" onPress={onLogin} style={{ marginTop:18 }} />
+            <GoldBtn label="Sign In to Order" onPress={onLogin} style={{ marginTop:18 }} />
+            <TouchableOpacity onPress={onGuestOrder} style={{ marginTop:10, alignItems:"center" }}>
+              <Text style={{ color:"#ddd", fontSize:13 }}>Continue as Guest</Text>
+            </TouchableOpacity>
           </View>
         </View>
         <PopularReel onOrder={onLogin} T={T} menu={menu} />
@@ -595,8 +582,7 @@ function LoginScreen({ onLogin, onGuest, isDark, setIsDark }: any) {
 
   const go = async () => {
     if (!username || !pass) { setErr("Please fill in all fields."); return; }
-    setLoading(true);
-    setErr("");
+    setLoading(true); setErr("");
     try {
       if (isSignup) {
         if (!email) { setErr("Please enter your email."); setLoading(false); return; }
@@ -604,16 +590,13 @@ function LoginScreen({ onLogin, onGuest, isDark, setIsDark }: any) {
         onLogin({ ...u, points: 0, role: getRoleKey(u.roles) });
       } else {
         const u = await api.login(username, pass);
-        // Fetch points separately
         let pts = 0;
         try { pts = await api.getPoints(); } catch {}
         onLogin({ ...u, points: pts, role: getRoleKey(u.roles) });
       }
     } catch (e: any) {
       setErr(e.message || "Something went wrong.");
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
   return (
@@ -651,18 +634,16 @@ function LoginScreen({ onLogin, onGuest, isDark, setIsDark }: any) {
               <Text style={{ color:T.subtext, fontSize:13 }}>Browse as Guest</Text>
             </TouchableOpacity>
           )}
-
-          {/* For Testing Only */}
           <View style={{ marginTop:24, borderTopWidth:1, borderTopColor:T.border, paddingTop:16 }}>
             <View style={{ backgroundColor:T.isDark?"#1a1500":"#fffbeb", borderRadius:8, padding:8,
               marginBottom:10, borderWidth:1, borderColor:`${accent}40`, alignItems:"center" }}>
               <Text style={{ color:"#92400e", fontSize:11, fontWeight:"700" }}>🧪 For Testing Only — Remove Before Launch</Text>
             </View>
             {[
-              { label:"Guest Customer",  user:"guest",   pass:"guest123"   },
-              { label:"Staff",           user:"staff",   pass:"staff123"   },
-              { label:"Manager",         user:"manager", pass:"manager123" },
-              { label:"Admin",           user:"admin",   pass:"admin123"   },
+              { label:"Guest Customer", user:"guest",   pass:"guest123"   },
+              { label:"Staff",          user:"staff",   pass:"staff123"   },
+              { label:"Manager",        user:"manager", pass:"manager123" },
+              { label:"Admin",          user:"admin",   pass:"admin123"   },
             ].map(u => (
               <TouchableOpacity key={u.user} onPress={() => { setUsername(u.user); setPass(u.pass); setErr(""); setSign(false); }}
                 style={[s.demoRow, { backgroundColor:T.surface2, borderColor:T.border }]}>
@@ -678,13 +659,36 @@ function LoginScreen({ onLogin, onGuest, isDark, setIsDark }: any) {
 }
 
 // ── Rewards Screen ────────────────────────────────────────────────────
-function RewardsScreen({ user, T }: any) {
-  const pts           = user.points ?? 0;
+function RewardsScreen({ user, T, onLogin, isGuest }: any) {
+  const pts           = user?.points ?? 0;
   const tier          = pts>=10000?"🥇 Gold":pts>=5000?"🥈 Silver":"🥉 Bronze";
   const nextMilestone = pts>=10000?15000:pts>=5000?10000:5000;
+
+  if (isGuest) return (
+    <ScrollView contentContainerStyle={{ padding:16, paddingBottom:20 }}>
+      <View style={{ backgroundColor:"#1a1a1a", borderRadius:16, padding:24, marginBottom:16, alignItems:"center" }}>
+        <Text style={{ fontSize:48 }}>🏆</Text>
+        <Text style={{ color:accent, fontWeight:"900", fontSize:22, marginTop:8 }}>Loyalty Rewards</Text>
+        <Text style={{ color:"#aaa", fontSize:13, textAlign:"center", marginTop:8 }}>
+          Create a free account to start earning points on every order!
+        </Text>
+        <View style={{ backgroundColor:"rgba(255,255,255,0.1)", borderRadius:12, padding:16, width:"100%", marginTop:16 }}>
+          {[["Spend $10","Earn 100 points"],["1,000 points","$10 off your order"],["5,000 points","$50 off your order"]].map(([k,v],i)=>(
+            <View key={i} style={{ flexDirection:"row", justifyContent:"space-between", paddingVertical:8,
+              borderBottomWidth:i<2?1:0, borderBottomColor:"rgba(255,255,255,0.1)" }}>
+              <Text style={{ color:"#aaa", fontSize:13 }}>{k}</Text>
+              <Text style={{ color:accent, fontWeight:"700", fontSize:13 }}>{v}</Text>
+            </View>
+          ))}
+        </View>
+        <GoldBtn label="Create Free Account" onPress={onLogin} style={{ marginTop:20, width:"100%" }} />
+      </View>
+    </ScrollView>
+  );
+
   return (
     <ScrollView contentContainerStyle={{ padding:16, paddingBottom:20 }}>
-      <View style={{ backgroundColor:T.isDark?"#0a0a0a":"#1a1a1a", borderRadius:16, padding:24, marginBottom:16 }}>
+      <View style={{ backgroundColor:"#1a1a1a", borderRadius:16, padding:24, marginBottom:16 }}>
         <View style={{ flexDirection:"row", justifyContent:"space-between", alignItems:"center" }}>
           <View>
             <Text style={{ color:"#aaa", fontSize:11, fontWeight:"700", textTransform:"uppercase" }}>Your Balance</Text>
@@ -702,20 +706,20 @@ function RewardsScreen({ user, T }: any) {
         <Text style={{ color:"#888", fontSize:12, marginTop:6 }}>{(nextMilestone-pts).toLocaleString()} pts to next tier</Text>
         <Text style={{ color:"#aaa", fontSize:12, marginTop:8 }}>💡 Spend $1 → earn 10 pts · 1,000 pts = $10</Text>
       </View>
-      <Card style={{ padding:16 }} T={T}>
-        <Text style={{ fontWeight:"800", fontSize:16, color:T.text, marginBottom:14 }}>🎁 Redeem Your Points</Text>
+      <Card style={{ padding:16 }} T={{ card:"#1c1c1c", border:"#333", text:"#f5f5f5", subtext:"#999", surface2:"#252525" }}>
+        <Text style={{ fontWeight:"800", fontSize:16, color:"#f5f5f5", marginBottom:14 }}>🎁 Redeem Your Points</Text>
         {[{pts:1000,reward:"$10 Off",icon:"☕"},{pts:5000,reward:"$50 Off",icon:"🥤"},{pts:10000,reward:"$100 Off",icon:"🍽️"}].map((r,i) => (
           <View key={i} style={[{ flexDirection:"row", justifyContent:"space-between", alignItems:"center", paddingVertical:14 },
-            i<2&&{ borderBottomWidth:1, borderBottomColor:T.border }]}>
+            i<2&&{ borderBottomWidth:1, borderBottomColor:"#333" }]}>
             <View style={{ flexDirection:"row", alignItems:"center", gap:12 }}>
               <Text style={{ fontSize:28 }}>{r.icon}</Text>
               <View>
-                <Text style={{ fontWeight:"700", fontSize:14, color:T.text }}>{r.reward}</Text>
-                <Text style={{ color:T.subtext, fontSize:12 }}>{r.pts.toLocaleString()} pts required</Text>
+                <Text style={{ fontWeight:"700", fontSize:14, color:"#f5f5f5" }}>{r.reward}</Text>
+                <Text style={{ color:"#999", fontSize:12 }}>{r.pts.toLocaleString()} pts required</Text>
               </View>
             </View>
-            <TouchableOpacity style={{ backgroundColor:pts>=r.pts?accent:T.surface2, borderRadius:8, paddingHorizontal:14, paddingVertical:8 }}>
-              <Text style={{ color:pts>=r.pts?"#111":T.subtext, fontWeight:"700", fontSize:12 }}>
+            <TouchableOpacity style={{ backgroundColor:pts>=r.pts?accent:"#252525", borderRadius:8, paddingHorizontal:14, paddingVertical:8 }}>
+              <Text style={{ color:pts>=r.pts?"#111":"#999", fontWeight:"700", fontSize:12 }}>
                 {pts>=r.pts?"Redeem":"🔒 Locked"}
               </Text>
             </TouchableOpacity>
@@ -875,140 +879,8 @@ function ReservationsScreen({ T }: any) {
   );
 }
 
-// ── Customize Modal ───────────────────────────────────────────────────
-function CustomizeModal({ item, onAdd, onClose, T }: any) {
-  const [size, setSize] = useState("Medium");
-  const [milk, setMilk] = useState("Whole Milk");
-  const [sweet, setSweet] = useState("Normal");
-  const [temp, setTemp] = useState(item.cat === "Iced Coffee" ? "Iced" : "Hot");
-  const [extras, setExtras] = useState<string[]>([]);
-  const [notes, setNotes] = useState("");
-
-  const sizes = [{ l: "Small", adj: -0.50 }, { l: "Medium", adj: 0 }, { l: "Large", adj: 0.75 }];
-  const milks = ["Whole Milk", "Oat Milk", "Almond Milk", "Skim Milk", "Soy Milk", "No Milk"];
-  const sweets = ["None", "Light", "Normal", "Extra"];
-  const temps = item.cat === "Iced Coffee" ? ["Iced", "Blended"] : ["Hot", "Iced", "Warm"];
-  const addOns = [{ l: "Extra Shot", adj: 0.75 }, { l: "Vanilla Syrup", adj: 0.50 }, { l: "Caramel Drizzle", adj: 0.50 }, { l: "Whipped Cream", adj: 0.75 }, { l: "Oat Milk Foam", adj: 0.75 }];
-
-  const sizeAdj = sizes.find(s => s.l === size)?.adj || 0;
-  const extrasAdj = extras.reduce((s, e) => s + (addOns.find(a => a.l === e)?.adj || 0), 0);
-  const finalPrice = item.price + sizeAdj + extrasAdj;
-
-  const toggleExtra = (e: string) => setExtras(x => x.includes(e) ? x.filter(i => i !== e) : [...x, e]);
-  const handleAdd = () => {
-    onAdd({ ...item, price: finalPrice, customizations: { size, milk, sweet, temp, extras, notes } });
-    onClose();
-  };
-
-  return (
-    <Modal transparent animationType="slide">
-      <View style={s.overlay}>
-        <ScrollView style={{ width: "100%" }} contentContainerStyle={{ alignItems: "center", padding: 20 }}>
-          <View style={[s.modalBox, { backgroundColor: T.card, width: "100%", maxWidth: 400, maxHeight: "90%" }]}>
-            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-              <View>
-                <Text style={[s.modalTitle, { color: T.text, marginTop: 0, textAlign: "left" }]}>{item.name}</Text>
-                <Text style={{ color: accent, fontWeight: "800", fontSize: 18, marginTop: 4 }}>${finalPrice.toFixed(2)}</Text>
-              </View>
-              <TouchableOpacity onPress={onClose}>
-                <Text style={{ color: T.subtext, fontSize: 20 }}>✕</Text>
-              </TouchableOpacity>
-            </View>
-            <ScrollView showsVerticalScrollIndicator={false}>
-              <Text style={{ fontWeight: "700", fontSize: 14, color: T.text, marginBottom: 10 }}>Size</Text>
-              <View style={{ flexDirection: "row", gap: 8, marginBottom: 16 }}>
-                {sizes.map(s => (
-                  <TouchableOpacity key={s.l} onPress={() => setSize(s.l)}
-                    style={{ flex: 1, backgroundColor: size === s.l ? accent : T.surface2, borderRadius: 8, padding: 10, alignItems: "center" }}>
-                    <Text style={{ color: size === s.l ? "#111" : T.text, fontWeight: "700", fontSize: 12 }}>
-                      {s.l}{s.adj !== 0 ? ` (${s.adj > 0 ? "+" : ""}$${Math.abs(s.adj).toFixed(2)})` : ""}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-              {item.cat !== "Food" && (
-                <>
-                  <Text style={{ fontWeight: "700", fontSize: 14, color: T.text, marginBottom: 10 }}>Temperature</Text>
-                  <View style={{ flexDirection: "row", gap: 8, marginBottom: 16 }}>
-                    {temps.map(t => (
-                      <TouchableOpacity key={t} onPress={() => setTemp(t)}
-                        style={{ backgroundColor: temp === t ? accent : T.surface2, borderRadius: 8, padding: 10, alignItems: "center" }}>
-                        <Text style={{ color: temp === t ? "#111" : T.text, fontWeight: "700", fontSize: 12 }}>
-                          {t === "Hot" ? "🔥" : t === "Iced" ? "🧊" : "☕"} {t}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                  <Text style={{ fontWeight: "700", fontSize: 14, color: T.text, marginBottom: 10 }}>Milk</Text>
-                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
-                    {milks.map(m => (
-                      <TouchableOpacity key={m} onPress={() => setMilk(m)}
-                        style={{ backgroundColor: milk === m ? accent : T.surface2, borderRadius: 8, padding: 10, alignItems: "center", minWidth: 80 }}>
-                        <Text style={{ color: milk === m ? "#111" : T.text, fontWeight: "700", fontSize: 12 }}>{m}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                  <Text style={{ fontWeight: "700", fontSize: 14, color: T.text, marginBottom: 10 }}>Sweetness</Text>
-                  <View style={{ flexDirection: "row", gap: 8, marginBottom: 16 }}>
-                    {sweets.map(s => (
-                      <TouchableOpacity key={s} onPress={() => setSweet(s)}
-                        style={{ flex: 1, backgroundColor: sweet === s ? accent : T.surface2, borderRadius: 8, padding: 10, alignItems: "center" }}>
-                        <Text style={{ color: sweet === s ? "#111" : T.text, fontWeight: "700", fontSize: 12 }}>{s}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </>
-              )}
-              <Text style={{ fontWeight: "700", fontSize: 14, color: T.text, marginBottom: 10 }}>Add-ons</Text>
-              {addOns.map(a => (
-                <TouchableOpacity key={a.l} onPress={() => toggleExtra(a.l)}
-                  style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 12, borderRadius: 10, backgroundColor: extras.includes(a.l) ? `${accent}22` : T.surface2, borderWidth: 1.5, borderColor: extras.includes(a.l) ? accent : T.border, marginBottom: 8 }}>
-                  <Text style={{ fontSize: 13, color: T.text, fontWeight: extras.includes(a.l) ? "700" : "400" }}>{a.l}</Text>
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                    <Text style={{ color: T.subtext, fontSize: 12 }}>+${a.adj.toFixed(2)}</Text>
-                    <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: extras.includes(a.l) ? accent : T.surface2, borderWidth: 1.5, borderColor: extras.includes(a.l) ? accent : T.border, alignItems: "center", justifyContent: "center" }}>
-                      <Text style={{ fontSize: 12, color: "#111" }}>{extras.includes(a.l) ? "✓" : ""}</Text>
-                    </View>
-                  </View>
-                </TouchableOpacity>
-              ))}
-              <Text style={{ fontWeight: "700", fontSize: 14, color: T.text, marginBottom: 10 }}>Special Instructions</Text>
-              <TextInput value={notes} onChangeText={setNotes} placeholder="Any special requests? (optional)"
-                placeholderTextColor={T.subtext} multiline numberOfLines={3}
-                style={[s.input, { backgroundColor: T.inputBg, borderColor: T.inputBorder, color: T.inputText, height: 70, textAlignVertical: "top" }]} />
-              <View style={{ backgroundColor: T.surface2, borderRadius: 10, padding: 14, marginTop: 16, marginBottom: 16 }}>
-                <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 4 }}>
-                  <Text style={{ color: T.subtext, fontSize: 12 }}>Base</Text>
-                  <Text style={{ color: T.subtext, fontSize: 12 }}>${item.price.toFixed(2)}</Text>
-                </View>
-                {sizeAdj !== 0 && (
-                  <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 4 }}>
-                    <Text style={{ color: T.subtext, fontSize: 12 }}>{size}</Text>
-                    <Text style={{ color: T.subtext, fontSize: 12 }}>{sizeAdj > 0 ? "+" : "-"}${Math.abs(sizeAdj).toFixed(2)}</Text>
-                  </View>
-                )}
-                {extras.map(e => (
-                  <View key={e} style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 4 }}>
-                    <Text style={{ color: T.subtext, fontSize: 12 }}>{e}</Text>
-                    <Text style={{ color: T.subtext, fontSize: 12 }}>+${(addOns.find(a => a.l === e)?.adj || 0).toFixed(2)}</Text>
-                  </View>
-                ))}
-                <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 8, borderTopWidth: 1, borderTopColor: T.border, paddingTop: 8 }}>
-                  <Text style={{ fontWeight: "900", fontSize: 14, color: T.text }}>Total</Text>
-                  <Text style={{ fontWeight: "900", fontSize: 14, color: accent }}>${finalPrice.toFixed(2)}</Text>
-                </View>
-              </View>
-              <GoldBtn label={`Add to Cart — $${finalPrice.toFixed(2)}`} onPress={handleAdd} style={{ marginBottom: 20 }} />
-            </ScrollView>
-          </View>
-        </ScrollView>
-      </View>
-    </Modal>
-  );
-}
-
 // ── Customer App ──────────────────────────────────────────────────────
-function CustomerApp({ user, setUser, onLogout, isDark, setIsDark, sharedOrders, setSharedOrders, menu, locations }: any) {
+function CustomerApp({ user, setUser, onLogout, onLogin, isDark, setIsDark, sharedOrders, setSharedOrders, menu, locations, isGuest=false }: any) {
   const T = getTheme(isDark);
   const [tab,         setTab]         = useState("menu");
   const [cart,        setCart]        = useState<any[]>([]);
@@ -1019,12 +891,9 @@ function CustomerApp({ user, setUser, onLogout, isDark, setIsDark, sharedOrders,
   const [showPayment, setShowPayment] = useState(false);
   const [selectedLoc, setSelectedLoc] = useState(locations[0]?.id ?? 1);
   const [isDriveThru, setIsDriveThru] = useState(false);
-  const [customizing, setCustomizing] = useState<any>(null);
 
   const cats  = ["Popular","Hot Coffee","Iced Coffee","Food"];
-  const shown = filter==="Popular"
-    ? [...menu].sort((a:any,b:any)=>b.orders-a.orders)
-    : menu.filter((m:any)=>m.cat===filter);
+  const shown = filter==="Popular" ? [...menu].sort((a:any,b:any)=>b.orders-a.orders) : menu.filter((m:any)=>m.cat===filter);
   const total = cart.reduce((s:number,i:any)=>s+i.price, 0);
 
   const handleCheckout = (isDT=false) => {
@@ -1037,19 +906,19 @@ function CustomerApp({ user, setUser, onLogout, isDark, setIsDark, sharedOrders,
   const handlePay = async (payMethod: string) => {
     const code    = "CL-" + Math.floor(1000+Math.random()*9000);
     const locName = locations.find((l:any)=>l.id===selectedLoc)?.name ?? "Hammond";
-    try {
-      // Post to real API
-      await api.createOrder(selectedLoc, total, cart);
-      // Refresh points
-      let newPts = user.points;
-      try { newPts = await api.getPoints(); } catch {}
-      setUser((u: any) => ({ ...u, points: newPts }));
-    } catch (e) {
-      // If order fails (e.g. guest), still show receipt locally
+
+    if (!isGuest) {
+      try {
+        await api.createOrder(selectedLoc, total, cart);
+        let newPts = user?.points ?? 0;
+        try { newPts = await api.getPoints(); } catch {}
+        setUser((u: any) => ({ ...u, points: newPts }));
+      } catch {}
     }
 
     const o = {
-      id:"#"+(1040+sharedOrders.length+1), code, customer: user.userName ?? user.name,
+      id:"#"+(1040+sharedOrders.length+1), code,
+      customer: isGuest ? "Guest" : (user?.userName ?? user?.name ?? "Customer"),
       items:cart, total, date:new Date().toLocaleDateString(),
       payMethod, type:isDriveThru?"drive-thru":"dine-in",
       status:"Pending", time:toCST(new Date()), location:locName, count:cart.length,
@@ -1072,10 +941,9 @@ function CustomerApp({ user, setUser, onLogout, isDark, setIsDark, sharedOrders,
   return (
     <SafeAreaView style={[s.screen, { backgroundColor:T.bg }]}>
       <StatusBar barStyle={isDark?"light-content":"dark-content"} />
-      {receipt    && <ReceiptModal order={receipt} onClose={()=>setReceipt(null)} T={T} />}
+      {receipt    && <ReceiptModal order={receipt} onClose={()=>setReceipt(null)} T={T} isGuest={isGuest} onLogin={onLogin} />}
       {driveCode  && <DriveThruModal code={driveCode.code} order={driveCode.order} onClose={()=>setDriveCode(null)} T={T} />}
-      {showPayment && <PaymentModal total={total} onPay={handlePay} onClose={()=>setShowPayment(false)} user={user} T={T} />}
-      {customizing && <CustomizeModal item={customizing} onAdd={(item:any)=>setCart((c:any)=>[...c,item])} onClose={()=>setCustomizing(null)} T={T} />}
+      {showPayment && <PaymentModal total={total} onPay={handlePay} onClose={()=>setShowPayment(false)} user={isGuest?null:user} T={T} />}
 
       <Modal transparent visible={cartOpen} animationType="slide">
         <View style={s.overlay}>
@@ -1095,7 +963,19 @@ function CustomerApp({ user, setUser, onLogout, isDark, setIsDark, sharedOrders,
                     <Text style={{ fontWeight:"900", fontSize:16, color:T.text }}>Total</Text>
                     <Text style={{ fontWeight:"900", fontSize:16, color:accent }}>${total.toFixed(2)}</Text>
                   </View>
-                  <View style={{ flexDirection:"row", gap:10, marginTop:16 }}>
+                  {isGuest && (
+                    <TouchableOpacity onPress={onLogin} style={{ backgroundColor:T.isDark?"#1a1500":"#fffbeb",
+                      borderRadius:10, padding:12, marginTop:12, flexDirection:"row", alignItems:"center", gap:8,
+                      borderWidth:1, borderColor:`${accent}50` }}>
+                      <Text style={{ fontSize:18 }}>⭐</Text>
+                      <View style={{ flex:1 }}>
+                        <Text style={{ color:"#92400e", fontWeight:"700", fontSize:12 }}>Sign up to earn {ptsForSpend(total)} pts on this order!</Text>
+                        <Text style={{ color:"#92400e", fontSize:11 }}>Worth ${ptsToDollars(ptsForSpend(total))} toward a future order</Text>
+                      </View>
+                      <Text style={{ color:accent, fontWeight:"700", fontSize:11 }}>Sign Up</Text>
+                    </TouchableOpacity>
+                  )}
+                  <View style={{ flexDirection:"row", gap:10, marginTop:12 }}>
                     <TouchableOpacity onPress={()=>setCart([])}
                       style={{ flex:1, borderWidth:2, borderColor:T.border, borderRadius:8, padding:12, alignItems:"center" }}>
                       <Text style={{ color:T.subtext, fontWeight:"700" }}>Clear</Text>
@@ -1112,7 +992,7 @@ function CustomerApp({ user, setUser, onLogout, isDark, setIsDark, sharedOrders,
         </View>
       </Modal>
 
-      <AppHeader user={user} T={T} isDark={isDark} setIsDark={setIsDark} onLogout={onLogout} />
+      <AppHeader user={user} T={T} isDark={isDark} setIsDark={setIsDark} onLogout={onLogout} onLogin={onLogin} isGuest={isGuest} />
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false}
         style={{ backgroundColor:T.isDark?"#0a0a0a":"#1a1a1a", maxHeight:44 }}
@@ -1129,6 +1009,19 @@ function CustomerApp({ user, setUser, onLogout, isDark, setIsDark, sharedOrders,
       <ScrollView style={{ flex:1 }} contentContainerStyle={{ padding:16, paddingBottom:100, backgroundColor:T.bg }}>
         {tab==="menu" && (
           <View>
+            {/* Guest points prompt banner */}
+            {isGuest && (
+              <TouchableOpacity onPress={onLogin} style={{ backgroundColor:T.isDark?"#1a1500":"#fffbeb",
+                borderRadius:12, padding:14, marginBottom:14, borderWidth:1, borderColor:`${accent}60`,
+                flexDirection:"row", alignItems:"center", gap:10 }}>
+                <Text style={{ fontSize:24 }}>⭐</Text>
+                <View style={{ flex:1 }}>
+                  <Text style={{ color:"#92400e", fontWeight:"800", fontSize:13 }}>You're missing out on points!</Text>
+                  <Text style={{ color:"#92400e", fontSize:12, marginTop:2 }}>Sign up free to earn rewards on every order.</Text>
+                </View>
+                <Text style={{ color:accent, fontWeight:"700", fontSize:12 }}>Sign Up →</Text>
+              </TouchableOpacity>
+            )}
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom:16 }}>
               {cats.map(c=>(
                 <TouchableOpacity key={c} onPress={()=>setFilter(c)}
@@ -1146,7 +1039,7 @@ function CustomerApp({ user, setUser, onLogout, isDark, setIsDark, sharedOrders,
                   <Text style={[s.menuCat, { color:T.subtext }]}>{item.cat}</Text>
                   <View style={{ flexDirection:"row", justifyContent:"space-between", alignItems:"center", marginTop:8 }}>
                     <Text style={s.menuPrice}>${item.price.toFixed(2)}</Text>
-                    <GoldBtn label="+ Add" onPress={()=>setCustomizing(item)} style={{ paddingVertical:7, paddingHorizontal:14 }} />
+                    <GoldBtn label="+ Add" onPress={()=>setCart((c:any)=>[...c,item])} style={{ paddingVertical:7, paddingHorizontal:14 }} />
                   </View>
                 </View>
               </Card>
@@ -1165,7 +1058,7 @@ function CustomerApp({ user, setUser, onLogout, isDark, setIsDark, sharedOrders,
                   <Text style={[s.menuName, { color:T.text }]}>{item.name}</Text>
                   <View style={{ flexDirection:"row", justifyContent:"space-between", alignItems:"center", marginTop:8 }}>
                     <Text style={s.menuPrice}>${item.price.toFixed(2)}</Text>
-                    <GoldBtn label="+ Add" onPress={()=>setCustomizing(item)} style={{ paddingVertical:7, paddingHorizontal:14 }} />
+                    <GoldBtn label="+ Add" onPress={()=>setCart((c:any)=>[...c,item])} style={{ paddingVertical:7, paddingHorizontal:14 }} />
                   </View>
                 </View>
               </Card>
@@ -1184,7 +1077,7 @@ function CustomerApp({ user, setUser, onLogout, isDark, setIsDark, sharedOrders,
           </View>
         )}
 
-        {tab==="rewards"      && <RewardsScreen user={user} T={T} />}
+        {tab==="rewards"      && <RewardsScreen user={user} T={T} isGuest={isGuest} onLogin={onLogin} />}
         {tab==="reservations" && <ReservationsScreen T={T} />}
         {tab==="locations"    && <LocationsScreen T={T} locations={locations} />}
       </ScrollView>
@@ -1202,15 +1095,12 @@ function CustomerApp({ user, setUser, onLogout, isDark, setIsDark, sharedOrders,
 
 // ── Staff / Manager App ───────────────────────────────────────────────
 function StaffApp({ user, onLogout, isDark, setIsDark, sharedOrders, setSharedOrders, locations }: any) {
-  const T          = getTheme(isDark);
-  const isManager  = getRoleKey(user.roles ?? user.role) === "manager";
+  const T         = getTheme(isDark);
+  const isManager = getRoleKey(user.roles ?? user.role) === "manager";
   const [tab, setTab] = useState("orders");
   const userLocation  = locations.find((l:any)=>l.id===user.locationId)?.name ?? locations[0]?.name ?? "Hammond";
   const advance = (id:string) => setSharedOrders((o:any[])=>o.map((x:any)=>x.id===id&&STATUS_NEXT[x.status]?{...x,status:STATUS_NEXT[x.status]}:x));
-  const myOrders = sharedOrders.filter((o:any)=>{
-    const loc = getLocName(o, locations);
-    return loc===userLocation && o.status!=="Done";
-  });
+  const myOrders = sharedOrders.filter((o:any) => getLocName(o, locations)===userLocation && o.status!=="Done");
 
   const tabs = isManager
     ? [{icon:"📋",label:"Orders",val:"orders"},{icon:"🚗",label:"Drive-Thru",val:"drive-thru"},{icon:"📊",label:"Dashboard",val:"dashboard"}]
@@ -1219,7 +1109,7 @@ function StaffApp({ user, onLogout, isDark, setIsDark, sharedOrders, setSharedOr
   return (
     <SafeAreaView style={[s.screen, { backgroundColor:T.bg }]}>
       <StatusBar barStyle={isDark?"light-content":"dark-content"} />
-      <AppHeader user={user} T={T} isDark={isDark} setIsDark={setIsDark} onLogout={onLogout} />
+      <AppHeader user={user} T={T} isDark={isDark} setIsDark={setIsDark} onLogout={onLogout} onLogin={null} isGuest={false} />
       <View style={{ backgroundColor:T.surface2, padding:12, flexDirection:"row", alignItems:"center", gap:8 }}>
         <Text style={{ color:accent, fontWeight:"800", fontSize:13 }}>📍 {userLocation}</Text>
         <Text style={{ color:T.subtext, fontSize:12 }}>
@@ -1290,10 +1180,10 @@ function StaffApp({ user, onLogout, isDark, setIsDark, sharedOrders, setSharedOr
           <View>
             <View style={s.statsGrid}>
               {[
-                {l:"Today's Orders", v:myOrders.length,                                                                i:"📦"},
-                {l:"Revenue Today",  v:"$"+myOrders.reduce((s:number,o:any)=>s+(o.total||0),0).toFixed(0),            i:"💰"},
-                {l:"Drive-Thru",     v:myOrders.filter((o:any)=>o.type==="drive-thru").length,                         i:"🚗"},
-                {l:"Staff On Shift", v:STAFF_ROSTER.filter(st=>st.loc===userLocation&&st.status==="On Shift").length,  i:"👥"},
+                {l:"Today's Orders", v:myOrders.length,                                                               i:"📦"},
+                {l:"Revenue Today",  v:"$"+myOrders.reduce((s:number,o:any)=>s+(o.total||0),0).toFixed(0),           i:"💰"},
+                {l:"Drive-Thru",     v:myOrders.filter((o:any)=>o.type==="drive-thru").length,                        i:"🚗"},
+                {l:"Staff On Shift", v:STAFF_ROSTER.filter(st=>st.loc===userLocation&&st.status==="On Shift").length, i:"👥"},
               ].map((st,i)=>(
                 <Card key={i} style={[s.statCard, { alignItems:"center" }]} T={T}>
                   <Text style={{ fontSize:28 }}>{st.i}</Text>
@@ -1338,16 +1228,16 @@ function AdminApp({ user, onLogout, isDark, setIsDark, sharedOrders, setSharedOr
 
   const advance = (id:string) => setSharedOrders((o:any[])=>o.map((x:any)=>x.id===id&&STATUS_NEXT[x.status]?{...x,status:STATUS_NEXT[x.status]}:x));
 
-  const filteredOrders = selLoc===0 ? sharedOrders : sharedOrders.filter((o:any)=>o.location===locations[selLoc-1]?.name);
+  const filteredOrders = selLoc===0 ? sharedOrders : sharedOrders.filter((o:any)=>getLocName(o,locations)===locations[selLoc-1]?.name);
   const totalRev       = filteredOrders.reduce((s:number,o:any)=>s+(o.total||0),0);
   const dtCount        = filteredOrders.filter((o:any)=>o.type==="drive-thru").length;
   const tablesActive   = filteredOrders.filter((o:any)=>o.type==="dine-in"&&o.status!=="Done").length;
-  const revenueByLoc   = locations.map((l:any)=>({ name:l.name, rev:sharedOrders.filter((o:any)=>o.location===l.name).reduce((s:number,o:any)=>s+(o.total||0),0) }));
+  const revenueByLoc   = locations.map((l:any)=>({ name:l.name, rev:sharedOrders.filter((o:any)=>getLocName(o,locations)===l.name).reduce((s:number,o:any)=>s+(o.total||0),0) }));
   const maxLocRev      = Math.max(...revenueByLoc.map((l:any)=>l.rev),1);
   const itemCounts:Record<string,number> = {};
   sharedOrders.forEach((o:any)=>o.items.forEach((it:any)=>{ itemCounts[it.name]=(itemCounts[it.name]||0)+1; }));
-  const sellers  = Object.entries(itemCounts).sort((a,b)=>b[1]-a[1]).slice(0,4).map(([name,cnt])=>({name,cnt:cnt as number}));
-  const maxSell  = sellers.length>0 ? sellers[0].cnt : 1;
+  const sellers = Object.entries(itemCounts).sort((a,b)=>b[1]-a[1]).slice(0,4).map(([name,cnt])=>({name,cnt:cnt as number}));
+  const maxSell = sellers.length>0 ? sellers[0].cnt : 1;
 
   const tabs = [{icon:"📊",label:"Dashboard",val:"dashboard"},{icon:"🍽️",label:"Menu",val:"menu"},
     {icon:"📦",label:"Orders",val:"orders"},{icon:"📍",label:"Locations",val:"locations"},{icon:"👥",label:"Staff",val:"staff"}];
@@ -1356,7 +1246,7 @@ function AdminApp({ user, onLogout, isDark, setIsDark, sharedOrders, setSharedOr
   return (
     <SafeAreaView style={[s.screen, { backgroundColor:T.bg }]}>
       <StatusBar barStyle={isDark?"light-content":"dark-content"} />
-      <AppHeader user={user} T={T} isDark={isDark} setIsDark={setIsDark} onLogout={onLogout} />
+      <AppHeader user={user} T={T} isDark={isDark} setIsDark={setIsDark} onLogout={onLogout} onLogin={null} isGuest={false} />
       <ScrollView style={{ flex:1 }} contentContainerStyle={{ padding:16, paddingBottom:100, backgroundColor:T.bg }}>
         {showLocFilter && (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom:16 }}>
@@ -1454,7 +1344,7 @@ function AdminApp({ user, onLogout, isDark, setIsDark, sharedOrders, setSharedOr
                         {o.customer} — {o.items.map((it:any)=>it.name).join(", ")}
                       </Text>
                       <Text style={{ color:T.subtext, fontSize:11, marginTop:2 }}>
-                        {o.id} · {o.type} · 📍 {getLocName(o, locations)} · {o.createdAt ? toCST(o.createdAt) : o.time}
+                        {o.id} · {o.type} · 📍 {getLocName(o,locations)} · {o.createdAt ? toCST(o.createdAt) : o.time}
                       </Text>
                       {o.type==="drive-thru"&&(
                         <View style={{ backgroundColor:accent, borderRadius:20, paddingHorizontal:8, paddingVertical:2, alignSelf:"flex-start", marginTop:4 }}>
@@ -1528,29 +1418,27 @@ function AdminApp({ user, onLogout, isDark, setIsDark, sharedOrders, setSharedOr
 // ── Root ──────────────────────────────────────────────────────────────
 export default function Index() {
   const [user,         setUser]         = useState<any>(null);
-  const [screen,       setScreen]       = useState<"guest"|"login"|"app">("guest");
+  const [screen,       setScreen]       = useState<"guest"|"login"|"app"|"guest-order">("guest");
   const [isDark,       setIsDark]       = useState(false);
   const [sharedOrders, setSharedOrders] = useState<any[]>([]);
   const [menu,         setMenu]         = useState<any[]>(FALLBACK_MENU);
   const [locations,    setLocations]    = useState<any[]>(FALLBACK_LOCATIONS);
   const [loading,      setLoading]      = useState(true);
 
-  // Fetch menu and locations on app load
   useEffect(() => {
     Promise.all([api.getMenu(), api.getLocations()])
       .then(([menuData, locData]) => {
         if (menuData?.length)  setMenu(menuData.map(enrichMenuItem));
         if (locData?.length)   setLocations(locData);
       })
-      .catch(() => {}) // keep fallback data on failure
+      .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
 
   const handleLogin  = (u: any) => { setUser(u); setScreen("app"); };
   const handleLogout = async () => {
     try { await api.logout(); } catch {}
-    setUser(null);
-    setScreen("guest");
+    setUser(null); setScreen("guest");
   };
 
   if (loading) return (
@@ -1564,18 +1452,20 @@ export default function Index() {
   const roleKey = getRoleKey(user?.roles ?? user?.role);
 
   if (screen==="login")
-    return <LoginScreen onLogin={handleLogin} onGuest={()=>setScreen("guest")} isDark={isDark} setIsDark={setIsDark} />;
+    return <LoginScreen onLogin={handleLogin} onGuest={()=>setScreen("guest-order")} isDark={isDark} setIsDark={setIsDark} />;
   if (screen==="guest")
-    return <GuestHome onLogin={()=>setScreen("login")} isDark={isDark} setIsDark={setIsDark} menu={menu} locations={locations} />;
+    return <GuestHome onLogin={()=>setScreen("login")} onGuestOrder={()=>setScreen("guest-order")} isDark={isDark} setIsDark={setIsDark} menu={menu} locations={locations} />;
+  if (screen==="guest-order")
+    return <CustomerApp user={null} setUser={setUser} onLogout={handleLogout} onLogin={()=>setScreen("login")} isDark={isDark} setIsDark={setIsDark} sharedOrders={sharedOrders} setSharedOrders={setSharedOrders} menu={menu} locations={locations} isGuest={true} />;
 
   if (roleKey==="customer" || roleKey==="User" || !user?.roles)
-    return <CustomerApp user={user} setUser={setUser} onLogout={handleLogout} isDark={isDark} setIsDark={setIsDark} sharedOrders={sharedOrders} setSharedOrders={setSharedOrders} menu={menu} locations={locations} />;
+    return <CustomerApp user={user} setUser={setUser} onLogout={handleLogout} onLogin={()=>setScreen("login")} isDark={isDark} setIsDark={setIsDark} sharedOrders={sharedOrders} setSharedOrders={setSharedOrders} menu={menu} locations={locations} isGuest={false} />;
   if (roleKey==="staff" || roleKey==="manager")
     return <StaffApp user={user} onLogout={handleLogout} isDark={isDark} setIsDark={setIsDark} sharedOrders={sharedOrders} setSharedOrders={setSharedOrders} locations={locations} />;
   if (roleKey==="admin")
     return <AdminApp user={user} onLogout={handleLogout} isDark={isDark} setIsDark={setIsDark} sharedOrders={sharedOrders} setSharedOrders={setSharedOrders} menu={menu} locations={locations} />;
 
-  return <LoginScreen onLogin={handleLogin} onGuest={()=>setScreen("guest")} isDark={isDark} setIsDark={setIsDark} />;
+  return <LoginScreen onLogin={handleLogin} onGuest={()=>setScreen("guest-order")} isDark={isDark} setIsDark={setIsDark} />;
 }
 
 // ── Styles ────────────────────────────────────────────────────────────
