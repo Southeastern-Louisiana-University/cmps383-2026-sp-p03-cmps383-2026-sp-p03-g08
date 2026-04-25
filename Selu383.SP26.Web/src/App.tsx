@@ -73,11 +73,11 @@ const STATUS_COLOR = { Pending:"#f59e0b", Preparing:"#3b82f6", Ready:"#16a34a", 
 const ROLE_COLOR   = { customer:"#16a34a", staff:"#2563eb", manager:"#7c3aed", admin:"#dc2626" } as Record<string,string>;
 
 const STAFF_ROSTER = [
-  {n:"Sara L.",   role:"Staff",   loc:"Hammond",     status:"On Shift"},
-  {n:"James R.",  role:"Staff",   loc:"Hammond",     status:"On Shift"},
-  {n:"Mike A.",   role:"Manager", loc:"Hammond",     status:"On Shift"},
-  {n:"Carol T.",  role:"Staff",   loc:"New York",    status:"Break"},
-  {n:"David M.",  role:"Staff",   loc:"New York",    status:"On Shift"},
+  {n:"Sara L.",   role:"Staff",   loc:"Hammond",      status:"On Shift"},
+  {n:"James R.",  role:"Staff",   loc:"Hammond",      status:"On Shift"},
+  {n:"Mike A.",   role:"Manager", loc:"Hammond",      status:"On Shift"},
+  {n:"Carol T.",  role:"Staff",   loc:"New York",     status:"Break"},
+  {n:"David M.",  role:"Staff",   loc:"New York",     status:"On Shift"},
   {n:"Eve S.",    role:"Manager", loc:"New Orleans",  status:"On Shift"},
   {n:"Frank B.",  role:"Staff",   loc:"New Orleans",  status:"On Shift"},
 ];
@@ -91,8 +91,7 @@ function Card({ children, style={}, onClick }:{ children:any, style?:React.CSSPr
   return <div onClick={onClick} style={{ background:T.card, borderRadius:14, border:`1px solid ${T.border}`, boxShadow:T.shadow, overflow:"hidden", cursor:onClick?"pointer":"default", ...style }}>{children}</div>;
 }
 
-// ── Payment Modal ─────────────────────────────────────────────────────
-function PaymentModal({ total, onPay, onClose, user }:any) {
+function PaymentModal({ total, onPay, onClose, user, isGuest, onSignUp }:any) {
   const T = useTheme();
   const [method, setMethod] = useState("card");
   const [card,   setCard]   = useState({ num:"", exp:"", cvv:"", name:"" });
@@ -101,6 +100,7 @@ function PaymentModal({ total, onPay, onClose, user }:any) {
   const grand    = (total + parseFloat(tax)).toFixed(2);
   const ptsCost  = ptsCostFor(total);
   const hasEnoughPts = (user?.points||0) >= ptsCost;
+  const ptsEarned = ptsForSpend(total);
 
   const pay = () => {
     if (method==="card") {
@@ -119,9 +119,18 @@ function PaymentModal({ total, onPay, onClose, user }:any) {
 
   return (
     <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.75)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:1000, padding:20 }}>
-      <div style={{ background:T.card, borderRadius:16, padding:24, width:"100%", maxWidth:400, color:T.text }}>
+      <div style={{ background:T.card, borderRadius:16, padding:24, width:"100%", maxWidth:400, color:T.text, maxHeight:"90vh", overflowY:"auto" as const }}>
         <div style={{ fontWeight:900, fontSize:18, marginBottom:4 }}>💳 Payment</div>
         <div style={{ color:T.subtext, fontSize:13, marginBottom:20 }}>Complete your order</div>
+        {isGuest && (
+          <div style={{ background:T.isDark?"#1a1500":"#fffbeb", border:`1px solid ${accent}50`, borderRadius:10, padding:"10px 14px", marginBottom:16, display:"flex", justifyContent:"space-between", alignItems:"center", gap:10 }}>
+            <div>
+              <div style={{ color:"#92400e", fontWeight:800, fontSize:13 }}>⭐ You'll miss {ptsEarned} points!</div>
+              <div style={{ color:"#92400e", fontSize:11, marginTop:2 }}>Sign up free to earn rewards on this order</div>
+            </div>
+            <button onClick={onSignUp} style={{ ...btn(accent,"#111"), padding:"6px 12px", fontSize:11, fontWeight:800, whiteSpace:"nowrap" as const }}>Sign Up</button>
+          </div>
+        )}
         <div style={{ background:T.surface2, borderRadius:10, padding:"12px 14px", marginBottom:20 }}>
           <div style={{ display:"flex", justifyContent:"space-between", fontSize:13, color:T.subtext, marginBottom:4 }}><span>Subtotal</span><span>${total.toFixed(2)}</span></div>
           <div style={{ display:"flex", justifyContent:"space-between", fontSize:13, color:T.subtext, marginBottom:8 }}><span>Tax (8.75%)</span><span>${tax}</span></div>
@@ -129,12 +138,15 @@ function PaymentModal({ total, onPay, onClose, user }:any) {
         </div>
         <div style={{ fontWeight:700, fontSize:13, color:T.text, marginBottom:10 }}>Payment Method</div>
         <div style={{ display:"flex", gap:8, marginBottom:20 }}>
-          {[{v:"card",l:"💳 Credit Card"},{v:"points",l:"⭐ Points"},{v:"apple",l:"🍎 Apple Pay"}].map(m=>(
+          {[{v:"card",l:"💳 Credit Card"},{v:"apple",l:"🍎 Apple Pay"}].map(m=>(
             <button key={m.v} onClick={()=>{ setMethod(m.v); setErr(""); }}
               style={{ ...btn(method===m.v?accent:T.surface2, method===m.v?"#111":T.text), flex:1, padding:"9px 6px", fontSize:11, fontWeight:method===m.v?900:500 }}>{m.l}</button>
           ))}
+          {!isGuest && (
+            <button onClick={()=>{ setMethod("points"); setErr(""); }}
+              style={{ ...btn(method==="points"?accent:T.surface2, method==="points"?"#111":T.text), flex:1, padding:"9px 6px", fontSize:11, fontWeight:method==="points"?900:500 }}>⭐ Points</button>
+          )}
         </div>
-
         {method==="card" && (
           <div>
             <input placeholder="Name on card" value={card.name} onChange={e=>setCard({...card,name:e.target.value})}
@@ -149,8 +161,7 @@ function PaymentModal({ total, onPay, onClose, user }:any) {
             </div>
           </div>
         )}
-
-        {method==="points" && (
+        {method==="points" && !isGuest && (
           <div style={{ background:T.isDark?"#1a1500":"#fffbeb", border:`1px solid ${hasEnoughPts?accent+"40":"#fca5a5"}`, borderRadius:10, padding:"12px 14px" }}>
             <div style={{ fontWeight:700, color:"#92400e", fontSize:14 }}>⭐ Pay with loyalty points</div>
             <div style={{ display:"flex", justifyContent:"space-between", fontSize:12, color:"#92400e", marginTop:6 }}>
@@ -166,14 +177,12 @@ function PaymentModal({ total, onPay, onClose, user }:any) {
             )}
           </div>
         )}
-
         {method==="apple" && (
           <div style={{ background:T.surface2, borderRadius:10, padding:"14px", textAlign:"center" }}>
             <div style={{ fontWeight:700, color:T.text, fontSize:14 }}>🍎 Apple Pay</div>
             <div style={{ color:T.subtext, fontSize:12, marginTop:4 }}>Confirm with Face ID or Touch ID</div>
           </div>
         )}
-
         {err && <div style={{ color:"#dc2626", fontSize:12, marginTop:10 }}>{err}</div>}
         <div style={{ display:"flex", gap:10, marginTop:20 }}>
           <button onClick={onClose} style={{ ...btn(T.surface2,T.text), flex:1, padding:"12px 0" }}>Cancel</button>
@@ -187,8 +196,7 @@ function PaymentModal({ total, onPay, onClose, user }:any) {
   );
 }
 
-// ── Receipt ───────────────────────────────────────────────────────────
-function Receipt({ order, onClose }:any) {
+function Receipt({ order, onClose, isGuest, onSignUp }:any) {
   const T = useTheme();
   const tax       = (order.total * 0.0875).toFixed(2);
   const grand     = (order.total + parseFloat(tax)).toFixed(2);
@@ -196,6 +204,7 @@ function Receipt({ order, onClose }:any) {
   const authNo    = "AUTH-" + Math.floor(Math.random()*9000000+1000000);
   const usedPoints = order.payMethod === "points";
   const ptsCost    = ptsCostFor(order.total);
+  const ptsEarned  = ptsForSpend(order.total);
   return (
     <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.75)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:999, padding:20 }}>
       <div style={{ background:T.card, borderRadius:16, padding:24, width:"100%", maxWidth:380, color:T.text, maxHeight:"90vh", overflowY:"auto" as const }}>
@@ -230,14 +239,22 @@ function Receipt({ order, onClose }:any) {
         <div style={{ display:"flex", justifyContent:"space-between", fontSize:16, fontWeight:900, borderTop:`1px solid ${T.border}`, paddingTop:8, color:T.text }}>
           <span>Total Paid</span><span style={{ color:accent }}>${grand}</span>
         </div>
-        <div style={{ background:T.isDark?"#1a1500":"#fffbeb", border:`1px solid ${accent}40`, borderRadius:8, padding:"10px 14px", marginTop:12, display:"flex", justifyContent:"space-between", fontSize:13 }}>
-          <span style={{ color:"#92400e", fontWeight:700 }}>
-            {usedPoints ? "⭐ Points Used" : "⭐ Points Earned"}
-          </span>
-          <span style={{ color: usedPoints?"#dc2626":"#92400e", fontWeight:800 }}>
-            {usedPoints ? `-${ptsCost.toLocaleString()} pts` : `+${ptsForSpend(order.total)} pts`}
-          </span>
-        </div>
+        {isGuest ? (
+          <div style={{ background:T.isDark?"#1a1500":"#fffbeb", border:`1px solid ${accent}50`, borderRadius:10, padding:"12px 14px", marginTop:14 }}>
+            <div style={{ color:"#92400e", fontWeight:800, fontSize:14 }}>⭐ You missed {ptsEarned} points!</div>
+            <div style={{ color:"#92400e", fontSize:12, marginTop:4 }}>
+              Create a free account to earn {ptsEarned} pts on this order — worth ${ptsToDollars(ptsEarned)} off your next visit.
+            </div>
+            <button onClick={onSignUp} style={{ ...btn(accent,"#111"), width:"100%", padding:"10px 0", marginTop:10, fontWeight:900 }}>Create Free Account</button>
+          </div>
+        ) : (
+          <div style={{ background:T.isDark?"#1a1500":"#fffbeb", border:`1px solid ${accent}40`, borderRadius:8, padding:"10px 14px", marginTop:12, display:"flex", justifyContent:"space-between", fontSize:13 }}>
+            <span style={{ color:"#92400e", fontWeight:700 }}>{usedPoints ? "⭐ Points Used" : "⭐ Points Earned"}</span>
+            <span style={{ color: usedPoints?"#dc2626":"#92400e", fontWeight:800 }}>
+              {usedPoints ? `-${ptsCost.toLocaleString()} pts` : `+${ptsEarned} pts`}
+            </span>
+          </div>
+        )}
         <button onClick={onClose} style={{ ...btn(T.isDark?"#333":"#1a1a1a"), width:"100%", marginTop:14, padding:"13px 0", fontSize:14 }}>Close</button>
       </div>
     </div>
@@ -275,16 +292,28 @@ function CustomizeModal({ item, onAdd, onClose }:any) {
   const [temp,   setTemp]   = useState(item.cat==="Iced Coffee"?"Iced":"Hot");
   const [extras, setExtras] = useState<string[]>([]);
   const [notes,  setNotes]  = useState("");
+
+  // ✅ FIX: was referenced but never declared — caused the white screen crash
+  const isFood = item.cat === "Food";
+
   const sizes  = [{l:"Small",adj:-0.50},{l:"Medium",adj:0},{l:"Large",adj:0.75}];
   const milks  = ["Whole Milk","Oat Milk","Almond Milk","Skim Milk","Soy Milk","No Milk"];
   const sweets = ["None","Light","Normal","Extra"];
   const temps  = item.cat==="Iced Coffee" ? ["Iced","Blended"] : ["Hot","Iced","Warm"];
-  const addOns = [{l:"Extra Shot",adj:0.75},{l:"Vanilla Syrup",adj:0.50},{l:"Caramel Drizzle",adj:0.50},{l:"Whipped Cream",adj:0.75},{l:"Oat Milk Foam",adj:0.75}];
+  const FOOD_ADDONS: Record<string, {l:string, adj:number}[]> = {
+    "Croissant":        [{l:"Butter",adj:0},{l:"Jam",adj:0},{l:"Extra Napkins",adj:0},{l:"Almond Filling",adj:0.75},{l:"Chocolate Drizzle",adj:0.50}],
+    "Cheesecake Slice": [{l:"Whipped Cream",adj:0.50},{l:"Caramel Drizzle",adj:0.50},{l:"Strawberry Sauce",adj:0.75},{l:"Extra Slice",adj:4.00}],
+    "Blueberry Muffin": [{l:"Butter",adj:0},{l:"Extra Blueberries",adj:0.50},{l:"Cream Cheese",adj:0.75},{l:"Warmed Up",adj:0}],
+  };
+  const addOns = isFood
+    ? (FOOD_ADDONS[item.name] ?? [{l:"Butter",adj:0},{l:"Extra Napkins",adj:0}])
+    : [{l:"Extra Shot",adj:0.75},{l:"Vanilla Syrup",adj:0.50},{l:"Caramel Drizzle",adj:0.50},{l:"Whipped Cream",adj:0.75},{l:"Oat Milk Foam",adj:0.75}];
   const sizeAdj    = sizes.find(s=>s.l===size)?.adj||0;
   const extrasAdj  = extras.reduce((s,e)=>s+(addOns.find(a=>a.l===e)?.adj||0),0);
   const finalPrice = item.price + sizeAdj + extrasAdj;
   const toggleExtra = (e:string) => setExtras(x=>x.includes(e)?x.filter(i=>i!==e):[...x,e]);
   const handleAdd = () => { onAdd({ ...item, price:finalPrice, customizations:{ size, milk, sweet, temp, extras, notes } }); onClose(); };
+
   return (
     <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.75)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:998, padding:20 }}>
       <div style={{ background:T.card, borderRadius:16, width:"100%", maxWidth:420, maxHeight:"90vh", overflowY:"auto" as const, color:T.text }}>
@@ -293,17 +322,19 @@ function CustomizeModal({ item, onAdd, onClose }:any) {
           <button onClick={onClose} style={{ ...btn(T.surface2,T.subtext), padding:"6px 12px" }}>✕</button>
         </div>
         <div style={{ padding:"16px 20px" }}>
-          <div style={{ marginBottom:18 }}>
-            <div style={{ fontWeight:700, fontSize:13, color:T.text, marginBottom:8 }}>Size</div>
-            <div style={{ display:"flex", gap:8 }}>
-              {sizes.map(s=>(
-                <button key={s.l} onClick={()=>setSize(s.l)} style={{ ...btn(size===s.l?accent:T.surface2,size===s.l?"#111":T.text), flex:1, padding:"10px 0", fontSize:12, fontWeight:size===s.l?900:500 }}>
-                  {s.l}{s.adj!==0?` (${s.adj>0?"+":""}$${Math.abs(s.adj).toFixed(2)})`:""}
-                </button>
-              ))}
+          {!isFood && (
+            <div style={{ marginBottom:18 }}>
+              <div style={{ fontWeight:700, fontSize:13, color:T.text, marginBottom:8 }}>Size</div>
+              <div style={{ display:"flex", gap:8 }}>
+                {sizes.map(s=>(
+                  <button key={s.l} onClick={()=>setSize(s.l)} style={{ ...btn(size===s.l?accent:T.surface2,size===s.l?"#111":T.text), flex:1, padding:"10px 0", fontSize:12, fontWeight:size===s.l?900:500 }}>
+                    {s.l}{s.adj!==0?` (${s.adj>0?"+":""}${Math.abs(s.adj).toFixed(2)})`:""}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
-          {item.cat!=="Food" && (
+          )}
+          {!isFood && (
             <>
               <div style={{ marginBottom:18 }}>
                 <div style={{ fontWeight:700, fontSize:13, color:T.text, marginBottom:8 }}>Temperature</div>
@@ -460,29 +491,38 @@ function Nav({ user, page, setPage, onLogout, history, goBack }:any) {
 function PopularReel({ onOrder }:any) {
   const T = useTheme();
   const popular = MENU.filter(m=>m.popular).sort((a,b)=>b.orders-a.orders);
-  const [active,setActive] = useState(0);
-  const [fade,setFade]     = useState(true);
+  const [current, setCurrent] = useState(0);
+  const [next,    setNext]    = useState(1);
+  const [fading,  setFading]  = useState(false);
+
   useEffect(()=>{
-    const t = setInterval(()=>{ setFade(false); setTimeout(()=>{ setActive(i=>(i+1)%popular.length); setFade(true); },400); },3000);
+    const t = setInterval(()=>{
+      const nxt = (current + 1) % popular.length;
+      setNext(nxt);
+      setFading(true);
+      setTimeout(()=>{ setCurrent(nxt); setFading(false); }, 500);
+    }, 3000);
     return ()=>clearInterval(t);
-  },[]);
-  const item = popular[active];
+  },[current, popular.length]);
+
+  const cur = popular[current];
+  const nxt = popular[next % popular.length];
+
   return (
-    <div style={{ position:"relative", height:420, overflow:"hidden" }}>
-      <div style={{ opacity:fade?1:0, transition:"opacity 0.4s", position:"absolute", inset:0 }}>
-        <img src={item.img} alt={item.name} style={{ width:"100%", height:"100%", objectFit:"cover" }} />
-        <div style={{ position:"absolute", inset:0, background:"linear-gradient(to bottom,rgba(0,0,0,.2),rgba(0,0,0,.75))" }} />
-      </div>
+    <div style={{ position:"relative", height:420, overflow:"hidden", background:"#1a1a1a" }}>
+      <img src={nxt.img} alt={nxt.name} style={{ position:"absolute", inset:0, width:"100%", height:"100%", objectFit:"cover" }} />
+      <img src={cur.img} alt={cur.name} style={{ position:"absolute", inset:0, width:"100%", height:"100%", objectFit:"cover", opacity:fading?0:1, transition:"opacity 0.5s" }} />
+      <div style={{ position:"absolute", inset:0, background:"linear-gradient(to bottom,rgba(0,0,0,.2),rgba(0,0,0,.75))" }} />
       <div style={{ position:"absolute", bottom:0, left:0, right:0, padding:"32px 24px" }}>
         <div style={{ display:"inline-block", background:accent, color:"#111", fontSize:11, fontWeight:800, padding:"4px 12px", borderRadius:20, marginBottom:10, letterSpacing:1 }}>🔥 MOST POPULAR</div>
-        <div style={{ color:"#fff", fontWeight:900, fontSize:28, marginBottom:4, textShadow:"0 2px 8px rgba(0,0,0,.5)" }}>{item.name}</div>
-        <div style={{ color:accent, fontSize:18, fontWeight:800, marginBottom:16 }}>${item.price.toFixed(2)}</div>
+        <div style={{ color:"#fff", fontWeight:900, fontSize:28, marginBottom:4, textShadow:"0 2px 8px rgba(0,0,0,.5)", opacity:fading?0:1, transition:"opacity 0.5s" }}>{cur.name}</div>
+        <div style={{ color:accent, fontSize:18, fontWeight:800, marginBottom:16, opacity:fading?0:1, transition:"opacity 0.5s" }}>${cur.price.toFixed(2)}</div>
         <button onClick={onOrder} style={{ ...btn(accent,"#111"), padding:"12px 28px", fontSize:15, fontWeight:900, borderRadius:10 }}>Order Now</button>
       </div>
       <div style={{ position:"absolute", bottom:16, right:24, display:"flex", gap:6 }}>
         {popular.map((_,i)=>(
-          <div key={i} onClick={()=>{setFade(false);setTimeout(()=>{setActive(i);setFade(true);},200);}}
-            style={{ width:i===active?24:8, height:8, borderRadius:4, background:i===active?accent:"rgba(255,255,255,.5)", cursor:"pointer", transition:"all .3s" }} />
+          <div key={i} onClick={()=>{ setNext(i); setFading(true); setTimeout(()=>{ setCurrent(i); setFading(false); },500); }}
+            style={{ width:i===current?24:8, height:8, borderRadius:4, background:i===current?accent:"rgba(255,255,255,.5)", cursor:"pointer", transition:"all .3s" }} />
         ))}
       </div>
     </div>
@@ -525,13 +565,15 @@ function GuestHome({ setPage }:any) {
         <div style={{ display:"inline-block", background:accent, color:"#111", fontSize:11, fontWeight:800, padding:"4px 14px", borderRadius:20, marginBottom:12 }}>🎁 REWARDS PROGRAM</div>
         <h2 style={{ color:"#fff", fontSize:isMobile?20:26, fontWeight:900, marginBottom:8 }}>Earn Points on Every Order</h2>
         <p style={{ color:"#aaa", fontSize:14, marginBottom:24, maxWidth:500, margin:"0 auto 24px" }}>Spend $10 → earn 100 points. 1,000 points = $10 off your next order!</p>
-        <button onClick={()=>setPage("login")} style={{ ...btn(accent,"#111"), padding:"14px 32px", fontSize:15, fontWeight:900, borderRadius:10 }}>Create Free Account</button>
+        <div style={{ display:"flex", gap:12, justifyContent:"center", flexWrap:"wrap" as const }}>
+          <button onClick={()=>setPage("login")} style={{ ...btn(accent,"#111"), padding:"14px 32px", fontSize:15, fontWeight:900, borderRadius:10 }}>Create Free Account</button>
+          <button onClick={()=>setPage("menu")} style={{ background:"transparent", border:`2px solid ${accent}`, color:accent, borderRadius:10, padding:"14px 32px", fontSize:15, fontWeight:900, cursor:"pointer" }}>Order as Guest</button>
+        </div>
       </div>
     </div>
   );
 }
 
-// ── LOGIN — wired to real backend ─────────────────────────────────────
 function Login({ onLogin, setPage, mode }:any) {
   const T = useTheme();
   const [email,    setEmail]    = useState("");
@@ -558,24 +600,35 @@ function Login({ onLogin, setPage, mode }:any) {
         const realPoints = pointsRes.ok ? await pointsRes.json() : 0;
         onLogin({ ...apiUser, role: roleMap[apiUser.roles?.[0]?.toLowerCase()] ?? "customer", name: apiUser.userName, email: apiUser.userName, points: realPoints, location: 1, lastOrder: null });
       } else {
-        const res = await fetch("/api/authentication/login", {
-          method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
-          body: JSON.stringify({ userName: email, password: pass }),
-        });
-        if (!res.ok) { setErr("Invalid credentials."); return; }
-        const apiUser = await res.json();
-        const localUser = USERS.find(u => u.email === email);
-        const pointsRes = await fetch("/api/users/points", { credentials: "include" });
-        const realPoints = pointsRes.ok ? await pointsRes.json() : 0;
-        onLogin({
-          ...apiUser,
-          role: localUser?.role ?? roleMap[apiUser.roles?.[0]?.toLowerCase()] ?? "customer",
-          name: localUser?.name ?? apiUser.userName,
-          email: apiUser.userName,
-          points: realPoints,
-          location: localUser?.location ?? 1,
-          lastOrder: localUser?.lastOrder ?? null,
-        });
+        let apiOk = false;
+        try {
+          const res = await fetch("/api/authentication/login", {
+            method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
+            body: JSON.stringify({ userName: email, password: pass }),
+          });
+          if (res.ok) {
+            apiOk = true;
+            const apiUser = await res.json();
+            const localUser = USERS.find(u => u.email === email);
+            const pointsRes = await fetch("/api/users/points", { credentials: "include" });
+            const realPoints = pointsRes.ok ? await pointsRes.json() : 0;
+            onLogin({
+              ...apiUser,
+              role: localUser?.role ?? roleMap[apiUser.roles?.[0]?.toLowerCase()] ?? "customer",
+              name: localUser?.name ?? apiUser.userName,
+              email: apiUser.userName,
+              points: realPoints,
+              location: localUser?.location ?? 1,
+              lastOrder: null,
+            });
+          }
+        } catch (_) {}
+        if (!apiOk) {
+          // Fallback: local test accounts (for dev/demo when backend lacks these users)
+          const localUser = USERS.find(u => u.email === email && u.password === pass);
+          if (localUser) { onLogin({ ...localUser }); return; }
+          setErr("Invalid credentials.");
+        }
       }
     } catch (e) { setErr("Network error. Please try again."); }
   };
@@ -603,6 +656,9 @@ function Login({ onLogin, setPage, mode }:any) {
           {isSignup?"Already have an account? ":"Don't have an account? "}
           <span onClick={()=>setIsSignup(!isSignup)} style={{ color:accent, cursor:"pointer", fontWeight:700 }}>{isSignup?"Sign In":"Sign Up Free"}</span>
         </div>
+        <div style={{ textAlign:"center", marginTop:10 }}>
+          <span onClick={()=>setPage("menu")} style={{ color:T.subtext, fontSize:12, cursor:"pointer" }}>Continue as Guest</span>
+        </div>
         <div style={{ marginTop:18, borderTop:`1px solid ${T.border}`, paddingTop:14 }}>
           <div style={{ background:T.isDark?"#1a1500":"#fffbeb", border:`1px solid ${accent}40`, borderRadius:8, padding:"6px 10px", marginBottom:10, textAlign:"center" as const }}>
             <span style={{ color:"#92400e", fontSize:11, fontWeight:700 }}>🧪 For Testing Only — Remove Before Launch</span>
@@ -620,9 +676,27 @@ function Login({ onLogin, setPage, mode }:any) {
   );
 }
 
-function RewardsPage({ user }:any) {
+function RewardsPage({ user, setPage }:any) {
   const T = useTheme();
   const isMobile = useIsMobile();
+  if (!user || user.isGuest) return (
+    <div style={{ maxWidth:700, margin:"0 auto", padding:isMobile?"16px":"24px" }}>
+      <div style={{ background:"linear-gradient(135deg,#1a1a1a,#2d2000)", borderRadius:16, padding:isMobile?20:28, marginBottom:20, color:"#fff", textAlign:"center" }}>
+        <div style={{ fontSize:52, marginBottom:12 }}>🏆</div>
+        <div style={{ color:accent, fontWeight:900, fontSize:22, marginBottom:8 }}>Loyalty Rewards</div>
+        <div style={{ color:"#aaa", fontSize:14, maxWidth:400, margin:"0 auto 20px" }}>Create a free account to start earning points on every order!</div>
+        <div style={{ background:"rgba(255,255,255,0.1)", borderRadius:12, padding:16, marginBottom:20, textAlign:"left" as const }}>
+          {[["Spend $10","Earn 100 points"],["1,000 points","$10 off your order"],["5,000 points","$50 off your order"]].map(([k,v],i)=>(
+            <div key={i} style={{ display:"flex", justifyContent:"space-between", padding:"8px 0", borderBottom:i<2?`1px solid rgba(255,255,255,.1)`:"none" }}>
+              <span style={{ color:"#aaa", fontSize:13 }}>{k}</span>
+              <span style={{ color:accent, fontWeight:700, fontSize:13 }}>{v}</span>
+            </div>
+          ))}
+        </div>
+        <button onClick={()=>setPage("login")} style={{ ...btn(accent,"#111"), padding:"14px 32px", fontSize:15, fontWeight:900, borderRadius:10 }}>Create Free Account</button>
+      </div>
+    </div>
+  );
   const tier = user.points>=10000?"🥇 Gold":user.points>=5000?"🥈 Silver":"🥉 Bronze";
   const nextMilestone = user.points>=10000?15000:user.points>=5000?10000:5000;
   return (
@@ -663,14 +737,54 @@ function RewardsPage({ user }:any) {
 function GuestMenuPage({ setPage }:any) {
   const T = useTheme();
   const isMobile = useIsMobile();
-  const [filter, setFilter] = useState("Popular");
+  const [filter,      setFilter]      = useState("Popular");
+  const [cart,        setCart]        = useState<any[]>([]);
+  const [customizing, setCustomizing] = useState<any>(null);
+  const [showPayment, setShowPayment] = useState(false);
+  const [receipt,     setReceipt]     = useState<any>(null);
+  const [driveCode,   setDriveCode]   = useState<any>(null);
+  const [selectedLoc, setSelectedLoc] = useState(1);
+
   const cats  = ["Popular","Hot Coffee","Iced Coffee","Food"];
   const shown = filter==="Popular" ? [...MENU].sort((a,b)=>b.orders-a.orders) : MENU.filter(m=>m.cat===filter);
+  const total = cart.reduce((s:number,i:any)=>s+i.price,0);
+
+  const handlePay = (payMethod: string) => {
+    const code    = "CL-" + Math.floor(1000+Math.random()*9000);
+    const locName = LOCATIONS.find(l=>l.id===selectedLoc)?.name ?? "Hammond";
+    const o = {
+      id: "#G" + Math.floor(1000+Math.random()*9000), code,
+      customer: "Guest", items: cart, total,
+      date: new Date().toLocaleDateString(), payMethod,
+      type: "dine-in", status: "Pending",
+      time: new Date().toLocaleTimeString(), location: locName, count: cart.length,
+    };
+    setShowPayment(false);
+    setReceipt({ ...o, payMethod });
+    setCart([]);
+  };
+
   return (
     <div style={{ background:T.bg, minHeight:"100vh" }}>
+      {receipt     && <Receipt order={receipt} onClose={()=>setReceipt(null)} isGuest={true} onSignUp={()=>setPage("signup")} />}
+      {driveCode   && <DriveThruCode code={driveCode.code} order={driveCode.order} onClose={()=>setDriveCode(null)} />}
+      {customizing && <CustomizeModal item={customizing} onAdd={(item:any)=>setCart((c:any)=>[...c,item])} onClose={()=>setCustomizing(null)} />}
+      {showPayment && <PaymentModal total={total} onPay={handlePay} onClose={()=>setShowPayment(false)} user={null} isGuest={true} onSignUp={()=>setPage("signup")} />}
       <div style={{ background:T.isDark?"#1a1500":"#fffbeb", borderBottom:`1px solid ${accent}30`, padding:"10px 20px", display:"flex", justifyContent:"space-between", alignItems:"center", gap:8, flexWrap:"wrap" as const }}>
-        <span style={{ color:T.text, fontSize:13 }}>👀 Browsing as guest — <strong>sign in to place an order</strong></span>
-        <button onClick={()=>setPage("login")} style={{ ...btn(accent,"#111"), padding:"6px 16px", fontSize:12, fontWeight:800 }}>Sign In</button>
+        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+          <span style={{ fontSize:18 }}>⭐</span>
+          <span style={{ color:T.isDark?"#f5f5f5":"#111", fontSize:13 }}><strong>You're missing out on points!</strong> Sign up free to earn rewards on every order.</span>
+        </div>
+        <div style={{ display:"flex", gap:8 }}>
+          <button onClick={()=>setPage("signup")} style={{ ...btn(accent,"#111"), padding:"6px 16px", fontSize:12, fontWeight:800 }}>Sign Up Free</button>
+          <button onClick={()=>setPage("login")} style={{ background:"transparent", border:`1px solid ${T.border}`, color:T.subtext, borderRadius:8, padding:"6px 12px", fontSize:12, cursor:"pointer" }}>Sign In</button>
+        </div>
+      </div>
+      <div style={{ background:T.isDark?"#0a0a0a":"#1a1a1a", padding:"8px 20px", display:"flex", alignItems:"center", gap:12, overflowX:"auto" as const }}>
+        <span style={{ color:"#aaa", fontSize:12, whiteSpace:"nowrap" as const }}>📍 Location:</span>
+        {LOCATIONS.map(l=>(
+          <button key={l.id} onClick={()=>setSelectedLoc(l.id)} style={{ ...btn(selectedLoc===l.id?accent:"rgba(255,255,255,.1)", selectedLoc===l.id?"#111":"#ccc"), padding:"5px 14px", fontSize:12, borderRadius:20, whiteSpace:"nowrap" as const }}>{l.name}</button>
+        ))}
       </div>
       <div style={{ maxWidth:900, margin:"0 auto", padding:isMobile?"16px":"24px" }}>
         <div style={{ display:"flex", gap:8, flexWrap:"wrap" as const, marginBottom:16 }}>
@@ -690,18 +804,46 @@ function GuestMenuPage({ setPage }:any) {
                 <div style={{ color:T.subtext, fontSize:10, marginBottom:6 }}>{item.cat}</div>
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
                   <span style={{ color:accent, fontWeight:900, fontSize:13 }}>${item.price.toFixed(2)}</span>
-                  <button onClick={()=>setPage("login")} style={{ ...btn(T.surface2,T.subtext), padding:"6px 10px", fontSize:10, fontWeight:700 }}>Sign in</button>
+                  <button onClick={()=>setCustomizing(item)} style={{ ...btn(accent,"#111"), padding:"6px 12px", fontSize:11, fontWeight:800 }}>+ Add</button>
                 </div>
               </div>
             </Card>
           ))}
         </div>
       </div>
+      {cart.length>0 && (
+        <div style={{ position:"fixed", bottom:20, right:20, background:T.card, borderRadius:14, border:`2px solid ${accent}`, padding:18, width:isMobile?undefined:290, zIndex:100, boxShadow:T.shadow }}>
+          {!isMobile && (
+            <>
+              <div style={{ fontWeight:800, fontSize:14, marginBottom:10, color:T.text }}>🛒 Cart ({cart.length})</div>
+              {cart.map((i:any,idx:number)=>(
+                <div key={idx} style={{ padding:"5px 0", borderBottom:`1px solid ${T.border}` }}>
+                  <div style={{ display:"flex", justifyContent:"space-between", fontSize:12, color:T.text }}><span style={{ fontWeight:600 }}>{i.name}</span><span style={{ color:accent }}>${i.price.toFixed(2)}</span></div>
+                </div>
+              ))}
+              <div style={{ borderTop:`1px solid ${T.border}`, paddingTop:8, marginTop:8, display:"flex", justifyContent:"space-between", fontWeight:800, fontSize:14, color:T.text }}><span>Total</span><span style={{ color:accent }}>${total.toFixed(2)}</span></div>
+              <div style={{ background:T.isDark?"#1a1500":"#fffbeb", borderRadius:8, padding:"8px 10px", marginTop:10, fontSize:11, color:"#92400e" }}>
+                ⭐ Sign up to earn <strong>{ptsForSpend(total)} pts</strong> on this order!
+                <span onClick={()=>setPage("signup")} style={{ color:accent, cursor:"pointer", fontWeight:700, marginLeft:6 }}>Sign Up →</span>
+              </div>
+              <div style={{ display:"flex", gap:8, marginTop:10 }}>
+                <button onClick={()=>setCart([])} style={{ ...btn(T.surface2,T.subtext), flex:1, padding:"8px 0", fontSize:12 }}>Clear</button>
+                <button onClick={()=>setShowPayment(true)} style={{ ...btn(accent,"#111"), flex:1, padding:"8px 0", fontSize:12, fontWeight:800 }}>Checkout</button>
+              </div>
+            </>
+          )}
+          {isMobile && (
+            <div onClick={()=>setShowPayment(true)} style={{ display:"flex", alignItems:"center", gap:8, cursor:"pointer" }}>
+              <span style={{ fontSize:18 }}>🛒</span>
+              <span style={{ color:"#111", fontWeight:900, fontSize:14 }}>{cart.length} · ${total.toFixed(2)}</span>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
 
-// ── CustomerApp — wired to real backend ───────────────────────────────
 function CustomerApp({ user, setUser, page, setPage, sharedOrders, setSharedOrders }:any) {
   const T = useTheme();
   const isMobile = useIsMobile();
@@ -726,55 +868,45 @@ function CustomerApp({ user, setUser, page, setPage, sharedOrders, setSharedOrde
     if (showCart) setShowCart(false);
   };
 
-  // ── wired to backend ──────────────────────────────────────────────
   const handlePay = async (payMethod: string) => {
     try {
       const res = await fetch("/api/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({
-          locationId: selectedLoc,
-          items: cart.map(i => ({ name: i.name, price: i.price })),
-          total,
-        }),
+        body: JSON.stringify({ locationId: selectedLoc, items: cart.map(i => ({ name: i.name, price: i.price })), total }),
       });
       if (!res.ok) { console.error("Order failed:", await res.text()); return; }
       const order = await res.json();
-
       const pointsRes = await fetch("/api/users/points", { credentials: "include" });
       const newPoints = pointsRes.ok ? await pointsRes.json() : user.points;
-
       const code    = "CL-" + Math.floor(1000 + Math.random() * 9000);
       const locName = LOCATIONS.find(l => l.id === selectedLoc)?.name || "Hammond";
       const o = {
         id: `#${order.id}`, code, customer: user.name, items: cart, total,
         date: new Date().toLocaleDateString(), payMethod,
         type: isDriveThruCheckout ? "drive-thru" : "dine-in",
-        status: "Pending", time: "Just now", location: locName, count: cart.length,
+        status: "Pending", time: new Date().toLocaleTimeString(), location: locName, count: cart.length,
       };
-
       setSharedOrders((prev: any[]) => [o, ...prev]);
       setShowPayment(false);
       if (isDriveThruCheckout) setDriveCode({ code, order: o });
       else setReceipt({ ...o, payMethod });
       setCart([]);
-
       const ptsCost   = ptsCostFor(total);
       const ptsChange = payMethod === "points" ? -ptsCost : ptsForSpend(total);
       setUser((u: any) => ({ ...u, points: Math.max(0, newPoints + (payMethod === "points" ? ptsChange : 0)), lastOrder: o }));
     } catch (e) { console.error("Order failed", e); }
   };
 
-  if (page==="rewards") return <RewardsPage user={user} />;
+  if (page==="rewards") return <RewardsPage user={user} setPage={setPage} />;
 
   return (
     <div style={{ background:T.bg, minHeight:"100vh" }}>
-      {receipt     && <Receipt order={receipt} onClose={()=>setReceipt(null)} />}
+      {receipt     && <Receipt order={receipt} onClose={()=>setReceipt(null)} isGuest={false} />}
       {driveCode   && <DriveThruCode code={driveCode.code} order={driveCode.order} onClose={()=>setDriveCode(null)} />}
       {customizing && <CustomizeModal item={customizing} onAdd={(item:any)=>setCart((c:any)=>[...c,item])} onClose={()=>setCustomizing(null)} />}
-      {showPayment && <PaymentModal total={total} onPay={handlePay} onClose={()=>setShowPayment(false)} user={user} />}
-
+      {showPayment && <PaymentModal total={total} onPay={handlePay} onClose={()=>setShowPayment(false)} user={user} isGuest={false} />}
       {isMobile && showCart && (
         <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.6)", zIndex:400 }} onClick={()=>setShowCart(false)}>
           <div onClick={e=>e.stopPropagation()} style={{ position:"absolute", bottom:0, left:0, right:0, background:T.card, borderRadius:"20px 20px 0 0", padding:24, maxHeight:"70vh", overflowY:"auto" as const }}>
@@ -797,14 +929,12 @@ function CustomerApp({ user, setUser, page, setPage, sharedOrders, setSharedOrde
           </div>
         </div>
       )}
-
       <div style={{ background:T.isDark?"#0a0a0a":"#1a1a1a", padding:"8px 20px", display:"flex", alignItems:"center", gap:12, overflowX:"auto" as const }}>
         <span style={{ color:"#aaa", fontSize:12, whiteSpace:"nowrap" as const }}>📍 Location:</span>
         {LOCATIONS.map(l=>(
           <button key={l.id} onClick={()=>setSelectedLoc(l.id)} style={{ ...btn(selectedLoc===l.id?accent:"rgba(255,255,255,.1)", selectedLoc===l.id?"#111":"#ccc"), padding:"5px 14px", fontSize:12, borderRadius:20, whiteSpace:"nowrap" as const }}>{l.name}</button>
         ))}
       </div>
-
       {user.lastOrder && page==="menu" && (
         <div style={{ background:T.isDark?"#1a1500":"#fffbeb", borderBottom:`1px solid ${accent}30`, padding:"10px 20px", display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap" as const, gap:8 }}>
           <div><span style={{ color:accent, fontWeight:800, fontSize:12 }}>🔄 Last Order: </span><span style={{ color:T.text, fontSize:12 }}>{user.lastOrder.items[0].name} — ${user.lastOrder.total.toFixed(2)}</span></div>
@@ -814,7 +944,6 @@ function CustomerApp({ user, setUser, page, setPage, sharedOrders, setSharedOrde
           </div>
         </div>
       )}
-
       <div style={{ maxWidth:900, margin:"0 auto", padding:isMobile?"16px":"24px 20px", paddingBottom:isMobile?90:24 }}>
         {page==="menu" && (
           <div>
@@ -859,7 +988,6 @@ function CustomerApp({ user, setUser, page, setPage, sharedOrders, setSharedOrde
             )}
           </div>
         )}
-
         {page==="drive-thru" && (
           <div>
             <h2 style={{ fontWeight:900, fontSize:18, color:T.text, marginBottom:4 }}>🚗 Drive-Thru Order</h2>
@@ -886,9 +1014,7 @@ function CustomerApp({ user, setUser, page, setPage, sharedOrders, setSharedOrde
             )}
           </div>
         )}
-
         {page==="reservations" && <ReservationsTab isMobile={isMobile} />}
-
         {page==="track" && (
           <Card style={{ padding:isMobile?16:24 }}>
             <h2 style={{ fontWeight:900, fontSize:18, color:T.text, marginBottom:16 }}>📦 Track Your Order</h2>
@@ -902,11 +1028,9 @@ function CustomerApp({ user, setUser, page, setPage, sharedOrders, setSharedOrde
             }
           </Card>
         )}
-
-        {page==="rewards"   && <RewardsPage user={user} />}
+        {page==="rewards"   && <RewardsPage user={user} setPage={setPage} />}
         {page==="locations" && <LocationsPage />}
       </div>
-
       {isMobile && cart.length>0 && (page==="menu"||page==="drive-thru") && (
         <div onClick={()=>page==="drive-thru"?handleCheckout(true):setShowCart(true)}
           style={{ position:"fixed", bottom:20, right:16, background:accent, borderRadius:30, padding:"14px 20px", display:"flex", alignItems:"center", gap:8, boxShadow:`0 4px 16px ${accent}66`, cursor:"pointer", zIndex:100 }}>
@@ -944,17 +1068,6 @@ function ReservationsTab({ isMobile }:any) {
     <Card style={{ padding:isMobile?16:28 }}>
       <h2 style={{ fontWeight:900, fontSize:20, color:T.text, marginBottom:4 }}>🪑 Reserve a Table</h2>
       <p style={{ color:T.subtext, fontSize:13, marginBottom:24 }}>Book at least 2 hours in advance · 1-hour slots · Up to 2 days ahead</p>
-      <div style={{ display:"flex", alignItems:"center", marginBottom:28 }}>
-        {["Date & Time","Party Size","Confirm"].map((s,i)=>(
-          <div key={i} style={{ display:"flex", alignItems:"center", flex:i<2?1:"auto" }}>
-            <div style={{ display:"flex", flexDirection:"column" as const, alignItems:"center", gap:4 }}>
-              <div style={{ width:32, height:32, borderRadius:"50%", background:step>i?accent:step===i+1?accent:T.surface2, color:step>=i+1?"#111":T.subtext, display:"flex", alignItems:"center", justifyContent:"center", fontWeight:900, fontSize:13 }}>{step>i+1?"✓":i+1}</div>
-              <span style={{ fontSize:10, fontWeight:700, color:step===i+1?accent:T.subtext, whiteSpace:"nowrap" as const }}>{s}</span>
-            </div>
-            {i<2 && <div style={{ flex:1, height:2, background:step>i+1?accent:T.surface2, margin:"0 8px", marginBottom:18 }} />}
-          </div>
-        ))}
-      </div>
       {step===1 && (
         <div>
           <label style={{ display:"block", fontWeight:700, fontSize:14, color:T.text, marginBottom:8 }}>📅 Select Date</label>
@@ -1003,13 +1116,11 @@ function ReservationsTab({ isMobile }:any) {
   );
 }
 
-// ── StaffApp — wired to real backend ──────────────────────────────────
-function StaffApp({ user, page, setPage, sharedOrders, setSharedOrders }:any) {
+function StaffApp({ user, page, sharedOrders, setSharedOrders }:any) {
   const T = useTheme();
   const isMobile = useIsMobile();
   const isManager = user.role==="manager";
   const userLocation = LOCATIONS.find(l=>l.id===user.location)?.name||"Hammond";
-
   const [apiOrders, setApiOrders] = useState<any[]>([]);
 
   useEffect(() => {
@@ -1025,9 +1136,7 @@ function StaffApp({ user, page, setPage, sharedOrders, setSharedOrders }:any) {
     const nextStatus = STATUS_NEXT[order.status];
     if (!nextStatus) return;
     await fetch(`/api/orders/${id}/status`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
+      method: "PUT", headers: { "Content-Type": "application/json" }, credentials: "include",
       body: JSON.stringify(nextStatus),
     });
     setApiOrders(o => o.map((x: any) => x.id === id ? { ...x, status: nextStatus } : x));
@@ -1044,7 +1153,6 @@ function StaffApp({ user, page, setPage, sharedOrders, setSharedOrders }:any) {
           </h2>
           <span style={{ background:accent, color:"#111", fontSize:11, fontWeight:800, padding:"3px 10px", borderRadius:20 }}>📍 {userLocation}</span>
         </div>
-
         {page==="orders" && (
           <div>
             {myOrders.filter((o:any)=>o.type!=="drive-thru").length===0
@@ -1055,7 +1163,7 @@ function StaffApp({ user, page, setPage, sharedOrders, setSharedOrders }:any) {
                     <div>
                       <div style={{ fontWeight:900, fontSize:15, color:T.text }}>{o.userName}</div>
                       <div style={{ color:T.subtext, fontSize:12, marginTop:2 }}>{o.items.map((i:any)=>i.name).join(", ")}</div>
-                      <div style={{ color:T.subtext, fontSize:11, marginTop:4 }}>#{o.id} · 📍 {o.locationName} · ${o.total?.toFixed(2)} · {new Date(o.createdAt).toLocaleTimeString()}</div>
+                      <div style={{ color:T.subtext, fontSize:11, marginTop:4 }}>#{o.id} · 📍 {o.locationName} · ${o.total?.toFixed(2)} · {new Date(o.createdAt).toLocaleTimeString("en-US",{timeZone:"America/Chicago"})}</div>
                     </div>
                     <div style={{ display:"flex", gap:8, alignItems:"center", flexWrap:"wrap" as const }}>
                       <span style={{ background:STATUS_COLOR[o.status], color:"#fff", fontSize:10, fontWeight:800, padding:"3px 10px", borderRadius:20 }}>{o.status}</span>
@@ -1068,7 +1176,6 @@ function StaffApp({ user, page, setPage, sharedOrders, setSharedOrders }:any) {
             }
           </div>
         )}
-
         {page==="drive-thru" && (
           <div>
             {myOrders.filter((o:any)=>o.type==="drive-thru").length===0
@@ -1091,15 +1198,14 @@ function StaffApp({ user, page, setPage, sharedOrders, setSharedOrders }:any) {
             }
           </div>
         )}
-
         {page==="dashboard" && isManager && (
           <div>
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14, marginBottom:20 }}>
               {[
-                {l:"Today's Orders", v:myOrders.length,                                                                    i:"📦"},
-                {l:"Revenue Today",  v:"$"+myOrders.reduce((s:number,o:any)=>s+(o.total||0),0).toFixed(0),                i:"💰"},
-                {l:"Drive-Thru",     v:myOrders.filter((o:any)=>o.type==="drive-thru").length,                             i:"🚗"},
-                {l:"Staff On Shift", v:STAFF_ROSTER.filter(s=>s.loc===userLocation&&s.status==="On Shift").length,         i:"👥"},
+                {l:"Today's Orders", v:myOrders.length,                                                                i:"📦"},
+                {l:"Revenue Today",  v:"$"+myOrders.reduce((s:number,o:any)=>s+(o.total||0),0).toFixed(0),            i:"💰"},
+                {l:"Drive-Thru",     v:myOrders.filter((o:any)=>o.type==="drive-thru").length,                         i:"🚗"},
+                {l:"Staff On Shift", v:STAFF_ROSTER.filter(s=>s.loc===userLocation&&s.status==="On Shift").length,     i:"👥"},
               ].map((s,i)=>(
                 <Card key={i} style={{ padding:16, textAlign:"center" }}>
                   <div style={{ fontSize:28 }}>{s.i}</div>
@@ -1108,20 +1214,6 @@ function StaffApp({ user, page, setPage, sharedOrders, setSharedOrders }:any) {
                 </Card>
               ))}
             </div>
-            {myOrders.length===0
-              ? <Card style={{ padding:32, textAlign:"center" }}><div style={{ fontSize:36 }}>📋</div><div style={{ color:T.subtext, marginTop:8 }}>No active orders yet</div></Card>
-              : (
-                <Card style={{ padding:16, marginBottom:14 }}>
-                  <div style={{ fontWeight:800, fontSize:14, color:T.text, marginBottom:12 }}>📋 Active Orders</div>
-                  {myOrders.slice(0,5).map((o:any,i:number)=>(
-                    <div key={i} style={{ display:"flex", justifyContent:"space-between", fontSize:12, padding:"6px 0", borderBottom:i<Math.min(myOrders.length,5)-1?`1px solid ${T.border}`:"none" }}>
-                      <span style={{ color:T.text }}>#{o.id} — {o.userName} — {o.items.map((it:any)=>it.name).join(", ")}</span>
-                      <span style={{ background:STATUS_COLOR[o.status], color:"#fff", fontSize:10, fontWeight:700, padding:"2px 8px", borderRadius:20 }}>{o.status}</span>
-                    </div>
-                  ))}
-                </Card>
-              )
-            }
             <Card style={{ padding:20 }}>
               <div style={{ fontWeight:800, fontSize:14, color:T.text, marginBottom:14 }}>👥 Staff at {userLocation}</div>
               {STAFF_ROSTER.filter(s=>s.loc===userLocation).map((s,i,arr)=>(
@@ -1156,8 +1248,8 @@ function AdminApp({ sharedOrders, setSharedOrders, page }:any) {
   const totalRev       = filteredOrders.reduce((s:number,o:any)=>s+(o.total||0),0);
   const dtCount        = filteredOrders.filter((o:any)=>o.type==="drive-thru").length;
   const tablesActive   = filteredOrders.filter((o:any)=>o.type==="dine-in"&&o.status!=="Done").length;
-  const hist           = [20,23,38,55,61,78,95];
-  const dayData        = hist.map((v:number,i:number)=>i===todayIdx ? Math.max(sharedOrders.length,1) : v);
+  const hist           = [0,0,0,0,0,0,0];
+  const dayData        = hist.map((v:number,i:number)=>i===todayIdx ? Math.max(sharedOrders.length,0) : v);
   const maxDay         = Math.max(...dayData,1);
   const revenueByLoc   = LOCATIONS.map(l=>({ name:l.name, rev:sharedOrders.filter((o:any)=>o.location===l.name).reduce((s:number,o:any)=>s+(o.total||0),0) }));
   const maxLocRev      = Math.max(...revenueByLoc.map(l=>l.rev),1);
@@ -1166,7 +1258,6 @@ function AdminApp({ sharedOrders, setSharedOrders, page }:any) {
   const topItems = Object.entries(itemCounts).sort((a,b)=>b[1]-a[1]).slice(0,4);
   const sellers  = topItems.map(([name,cnt])=>({name,cnt:cnt as number}));
   const maxSell  = sellers.length>0 ? sellers[0].cnt : 1;
-
   const showLocFilter = ["dashboard","orders","staff"].includes(page);
 
   return (
@@ -1180,16 +1271,15 @@ function AdminApp({ sharedOrders, setSharedOrders, page }:any) {
             ))}
           </div>
         )}
-
         {page==="dashboard" && (
           <div>
             <h2 style={{ fontWeight:900, fontSize:18, color:T.text, marginBottom:16 }}>📊 Overview — {selLoc===0?"All Locations":LOCATIONS[selLoc-1].name}</h2>
             <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)", gap:isMobile?10:14, marginBottom:20 }}>
               {[
-                {l:"Orders Today",  v:filteredOrders.length,      i:"📦"},
-                {l:"Revenue",       v:"$"+totalRev.toFixed(0),    i:"💰"},
-                {l:"Tables Active", v:tablesActive+" active",     i:"🪑"},
-                {l:"Drive-Thru",    v:dtCount,                    i:"🚗"},
+                {l:"Orders Today",  v:filteredOrders.length,   i:"📦"},
+                {l:"Revenue",       v:"$"+totalRev.toFixed(0), i:"💰"},
+                {l:"Tables Active", v:tablesActive+" active",  i:"🪑"},
+                {l:"Drive-Thru",    v:dtCount,                 i:"🚗"},
               ].map((s,i)=>(
                 <Card key={i} style={{ padding:isMobile?14:20, textAlign:"center" }}>
                   <div style={{ fontSize:isMobile?24:28 }}>{s.i}</div>
@@ -1241,7 +1331,6 @@ function AdminApp({ sharedOrders, setSharedOrders, page }:any) {
             </div>
           </div>
         )}
-
         {page==="menu" && (
           <div>
             <h2 style={{ fontWeight:900, fontSize:18, color:T.text, marginBottom:16 }}>🍽 Menu Management</h2>
@@ -1258,7 +1347,6 @@ function AdminApp({ sharedOrders, setSharedOrders, page }:any) {
             ))}
           </div>
         )}
-
         {page==="orders" && (
           <div>
             <h2 style={{ fontWeight:900, fontSize:18, color:T.text, marginBottom:16 }}>📦 All Orders</h2>
@@ -1282,9 +1370,7 @@ function AdminApp({ sharedOrders, setSharedOrders, page }:any) {
             }
           </div>
         )}
-
         {page==="locations" && <LocationsPage isAdmin />}
-
         {page==="staff" && (
           <div>
             <h2 style={{ fontWeight:900, fontSize:18, color:T.text, marginBottom:16 }}>👥 Staff</h2>
@@ -1299,7 +1385,6 @@ function AdminApp({ sharedOrders, setSharedOrders, page }:any) {
             ))}
           </div>
         )}
-
         {page==="settings" && (
           <Card style={{ padding:isMobile?16:24 }}>
             <h2 style={{ fontWeight:900, fontSize:18, color:T.text, marginBottom:16 }}>⚙️ Settings</h2>
@@ -1346,16 +1431,6 @@ function LocationsPage({ isAdmin=false }:{ isAdmin?:boolean }) {
             </div>
           ))}
         </div>
-        <div style={{ background:T.card, borderRadius:14, border:`1px solid ${T.border}`, height:isMobile?200:260, display:"flex", alignItems:"center", justifyContent:"center", flexDirection:"column" as const, gap:8 }}>
-          <div style={{ fontSize:40 }}>🗺️</div>
-          <div style={{ fontWeight:700, color:T.subtext, fontSize:14 }}>Interactive Map</div>
-          <div style={{ fontSize:12, color:T.subtext }}>Google Maps integration via backend</div>
-          <div style={{ display:"flex", gap:8, marginTop:8, flexWrap:"wrap" as const, justifyContent:"center" }}>
-            {LOCATIONS.map(l=>(
-              <div key={l.id} onClick={()=>setSelected(l.id)} style={{ background:selected===l.id?accent:T.surface2, color:selected===l.id?"#111":T.text, border:`2px solid ${selected===l.id?accent:T.border}`, borderRadius:8, padding:"6px 14px", fontSize:12, fontWeight:700, cursor:"pointer" }}>📍 {l.name}</div>
-            ))}
-          </div>
-        </div>
       </div>
     </div>
   );
@@ -1394,6 +1469,7 @@ export default function App() {
         {!user && page==="login"     && <Login onLogin={handleLogin} setPage={navigate} mode="login" />}
         {!user && page==="signup"    && <Login onLogin={handleLogin} setPage={navigate} mode="signup" />}
         {!user && page==="locations" && <LocationsPage />}
+        {!user && page==="rewards"   && <RewardsPage user={null} setPage={navigate} />}
         {user && page==="home"       && <GuestHome setPage={navigate} />}
         {user?.role==="customer" && customerPages.includes(page) && <CustomerApp user={user} setUser={setUser} page={page} setPage={navigate} sharedOrders={sharedOrders} setSharedOrders={setSharedOrders} />}
         {(user?.role==="staff"||user?.role==="manager") && staffPages.includes(page) && <StaffApp user={user} page={page} setPage={navigate} sharedOrders={sharedOrders} setSharedOrders={setSharedOrders} />}
