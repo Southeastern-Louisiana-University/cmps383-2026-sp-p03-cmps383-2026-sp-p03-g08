@@ -44,11 +44,11 @@ const api = {
     if (!res.ok) return [];
     return res.json();
   },
-  createOrder: async (locationId: number, total: number, items: any[]) => {
+  createOrder: async (locationId: number, total: number, items: any[], type: string = "dine-in") => {
     const res = await fetch(`${API_URL}/api/orders`, {
       method: "POST", headers: { "Content-Type": "application/json" },
       credentials: "include",
-      body: JSON.stringify({ locationId, total, items: items.map(i => ({ name: i.name, price: i.price })) }),
+      body: JSON.stringify({ locationId, total, type, items: items.map(i => ({ name: i.name, price: i.price })) }),
     });
     if (!res.ok) throw new Error("Order failed.");
     return res.json();
@@ -56,8 +56,7 @@ const api = {
   getPoints: async () => {
     const res = await fetch(`${API_URL}/api/users/points`, { credentials: "include" });
     if (!res.ok) return 0;
-    const data = await res.json();
-    return data.points ?? 0;
+    return await res.json(); // returns plain number, not object
   },
 };
 
@@ -141,7 +140,7 @@ const FALLBACK_LOCATIONS = [
   { id:1, name:"Hammond" }, { id:2, name:"New York" }, { id:3, name:"New Orleans" },
 ];
 
-const STAFF_ROSTER = [
+const locationStaff = [
   {n:"Sara L.",   role:"Staff",   loc:"Hammond",     status:"On Shift"},
   {n:"James R.",  role:"Staff",   loc:"Hammond",     status:"On Shift"},
   {n:"Mike A.",   role:"Manager", loc:"Hammond",     status:"On Shift"},
@@ -590,6 +589,7 @@ function LoginScreen({ onLogin, onGuest, isDark, setIsDark }: any) {
         onLogin({ ...u, points: 0, role: getRoleKey(u.roles) });
       } else {
         const u = await api.login(username, pass);
+        console.log("Login response:", JSON.stringify(u));
         let pts = 0;
         try { pts = await api.getPoints(); } catch {}
         onLogin({ ...u, points: pts, role: getRoleKey(u.roles) });
@@ -909,7 +909,7 @@ function CustomerApp({ user, setUser, onLogout, onLogin, isDark, setIsDark, shar
 
     if (!isGuest) {
       try {
-        await api.createOrder(selectedLoc, total, cart);
+        await api.createOrder(selectedLoc, total, cart, isDriveThru ? "drive-thru" : "dine-in");
         let newPts = user?.points ?? 0;
         try { newPts = await api.getPoints(); } catch {}
         setUser((u: any) => ({ ...u, points: newPts }));
@@ -1093,14 +1093,46 @@ function CustomerApp({ user, setUser, onLogout, onLogin, isDark, setIsDark, shar
   );
 }
 
-// ── Staff / Manager App ───────────────────────────────────────────────
-function StaffApp({ user, onLogout, isDark, setIsDark, sharedOrders, setSharedOrders, locations }: any) {
+function StaffApp({ user, onLogout, isDark, setIsDark, locations }: any) {
   const T         = getTheme(isDark);
   const isManager = getRoleKey(user.roles ?? user.role) === "manager";
   const [tab, setTab] = useState("orders");
-  const userLocation  = locations.find((l:any)=>l.id===user.locationId)?.name ?? locations[0]?.name ?? "Hammond";
-  const advance = (id:string) => setSharedOrders((o:any[])=>o.map((x:any)=>x.id===id&&STATUS_NEXT[x.status]?{...x,status:STATUS_NEXT[x.status]}:x));
-  const myOrders = sharedOrders.filter((o:any) => getLocName(o, locations)===userLocation && o.status!=="Done");
+  const [apiOrders, setApiOrders] = useState<any[]>([]);
+  const [staffList, setStaffList] = useState<any[]>([]);
+  const userLocation = locations.find((l:any)=>l.id===user.locationId)?.name ?? locations[0]?.name ?? "Hammond";
+
+  useEffect(() => {
+    const today = new Date().toISOString().split("T")[0];
+    fetch(`${API_URL}/api/orders?date=${today}`, { credentials: "include" })
+      .then(r => r.json())
+      .then(data => setApiOrders(Array.isArray(data) ? data : []))
+      .catch(() => {});
+
+    fetch(`${API_URL}/api/users`, { credentials: "include" })
+      .then(r => r.json())
+      .then(data => setStaffList(Array.isArray(data) ? data : []))
+      .catch(() => {});
+  }, []);
+
+  const advance = async (id: number) => {
+    const order = apiOrders.find((o: any) => o.id === id);
+    if (!order) return;
+    const nextStatus = STATUS_NEXT[order.status];
+    if (!nextStatus) return;
+    await fetch(`${API_URL}/api/orders/${id}/status`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(nextStatus),
+    });
+    setApiOrders(o => o.map((x: any) => x.id === id ? { ...x, status: nextStatus } : x));
+  };
+
+  const myOrders = apiOrders.filter((o: any) => o.status !== "Done");
+  const locationStaff = staffList.filter((s: any) =>
+    s.roles?.some((r: string) => r === "Staff" || r === "Manager") &&
+    s.locationId === user.locationId
+  );
 
   const tabs = isManager
     ? [{icon:"📋",label:"Orders",val:"orders"},{icon:"🚗",label:"Drive-Thru",val:"drive-thru"},{icon:"📊",label:"Dashboard",val:"dashboard"}]
@@ -1123,9 +1155,9 @@ function StaffApp({ user, onLogout, isDark, setIsDark, sharedOrders, setSharedOr
               ? <Text style={{ color:T.subtext, textAlign:"center", padding:40 }}>No active orders at {userLocation}</Text>
               : myOrders.filter((o:any)=>o.type!=="drive-thru").map((o:any)=>(
                 <Card key={o.id} style={{ padding:16, marginBottom:12 }} T={T}>
-                  <Text style={{ fontWeight:"900", fontSize:15, color:T.text }}>{o.customer}</Text>
-                  <Text style={{ color:T.subtext, fontSize:12, marginTop:2 }}>{o.items.map((i:any)=>i.name).join(", ")} · {o.count} item{o.count>1?"s":""}</Text>
-                  <Text style={{ color:T.subtext, fontSize:11, marginTop:4 }}>{o.id} · {o.createdAt ? toCST(o.createdAt) : o.time}</Text>
+                  <Text style={{ fontWeight:"900", fontSize:15, color:T.text }}>{o.userName}</Text>
+                  <Text style={{ color:T.subtext, fontSize:12, marginTop:2 }}>{o.items.map((i:any)=>i.name).join(", ")} · {o.items?.length} item{o.items?.length>1?"s":""}</Text>
+                  <Text style={{ color:T.subtext, fontSize:11, marginTop:4 }}>#{o.id} · {toCST(o.createdAt)}</Text>
                   <View style={{ flexDirection:"row", alignItems:"center", gap:10, marginTop:10 }}>
                     <View style={[s.statusBadge, { backgroundColor:STATUS_COLOR[o.status] }]}>
                       <Text style={s.statusBadgeTxt}>{o.status}</Text>
@@ -1154,11 +1186,8 @@ function StaffApp({ user, onLogout, isDark, setIsDark, sharedOrders, setSharedOr
                 <Card key={o.id} style={{ padding:16, marginBottom:12 }} T={T}>
                   <View style={{ flexDirection:"row", justifyContent:"space-between", alignItems:"center" }}>
                     <View>
-                      <Text style={{ fontWeight:"900", fontSize:15, color:T.text }}>{o.customer}</Text>
+                      <Text style={{ fontWeight:"900", fontSize:15, color:T.text }}>{o.userName}</Text>
                       <Text style={{ color:T.subtext, fontSize:12 }}>{o.items.map((i:any)=>i.name).join(", ")}</Text>
-                      <View style={{ backgroundColor:accent, borderRadius:20, paddingHorizontal:10, paddingVertical:3, alignSelf:"flex-start", marginTop:6 }}>
-                        <Text style={{ color:"#111", fontWeight:"800", fontSize:11 }}>Code: {o.code}</Text>
-                      </View>
                     </View>
                     <View>
                       <View style={[s.statusBadge, { backgroundColor:STATUS_COLOR[o.status] }]}>
@@ -1180,10 +1209,10 @@ function StaffApp({ user, onLogout, isDark, setIsDark, sharedOrders, setSharedOr
           <View>
             <View style={s.statsGrid}>
               {[
-                {l:"Today's Orders", v:myOrders.length,                                                               i:"📦"},
-                {l:"Revenue Today",  v:"$"+myOrders.reduce((s:number,o:any)=>s+(o.total||0),0).toFixed(0),           i:"💰"},
-                {l:"Drive-Thru",     v:myOrders.filter((o:any)=>o.type==="drive-thru").length,                        i:"🚗"},
-                {l:"Staff On Shift", v:STAFF_ROSTER.filter(st=>st.loc===userLocation&&st.status==="On Shift").length, i:"👥"},
+                {l:"Today's Orders", v:myOrders.length,                                                        i:"📦"},
+                {l:"Revenue Today",  v:"$"+myOrders.reduce((s:number,o:any)=>s+(o.total||0),0).toFixed(0),    i:"💰"},
+                {l:"Drive-Thru",     v:myOrders.filter((o:any)=>o.type==="drive-thru").length,                 i:"🚗"},
+                {l:"Staff On Shift", v:locationStaff.length,                                                   i:"👥"},
               ].map((st,i)=>(
                 <Card key={i} style={[s.statCard, { alignItems:"center" }]} T={T}>
                   <Text style={{ fontSize:28 }}>{st.i}</Text>
@@ -1194,23 +1223,26 @@ function StaffApp({ user, onLogout, isDark, setIsDark, sharedOrders, setSharedOr
             </View>
             <Card style={{ padding:20 }} T={T}>
               <Text style={{ fontWeight:"800", fontSize:14, color:T.text, marginBottom:14 }}>👥 Staff at {userLocation}</Text>
-              {STAFF_ROSTER.filter(st=>st.loc===userLocation).map((st,i,arr)=>(
-                <View key={i} style={{ flexDirection:"row", justifyContent:"space-between", alignItems:"center",
-                  paddingVertical:10, borderBottomWidth:i<arr.length-1?1:0, borderBottomColor:T.border }}>
-                  <View style={{ flexDirection:"row", alignItems:"center", gap:10 }}>
-                    <View style={{ width:34, height:34, borderRadius:17, backgroundColor:T.surface2, alignItems:"center", justifyContent:"center" }}>
-                      <Text>👤</Text>
+              {locationStaff.length===0
+                ? <Text style={{ color:T.subtext, textAlign:"center", padding:16 }}>No staff found</Text>
+                : locationStaff.map((st:any, i:number) => (
+                  <View key={i} style={{ flexDirection:"row", justifyContent:"space-between", alignItems:"center",
+                    paddingVertical:10, borderBottomWidth:i<locationStaff.length-1?1:0, borderBottomColor:T.border }}>
+                    <View style={{ flexDirection:"row", alignItems:"center", gap:10 }}>
+                      <View style={{ width:34, height:34, borderRadius:17, backgroundColor:T.surface2, alignItems:"center", justifyContent:"center" }}>
+                        <Text>👤</Text>
+                      </View>
+                      <View>
+                        <Text style={{ fontWeight:"700", color:T.text }}>{st.name ?? st.userName}</Text>
+                        <Text style={{ color:T.subtext, fontSize:12 }}>{st.roles?.[0]}</Text>
+                      </View>
                     </View>
-                    <View>
-                      <Text style={{ fontWeight:"700", color:T.text }}>{st.n}</Text>
-                      <Text style={{ color:T.subtext, fontSize:12 }}>{st.role}</Text>
+                    <View style={{ backgroundColor:"#dcfce7", borderRadius:20, paddingHorizontal:10, paddingVertical:4 }}>
+                      <Text style={{ color:"#16a34a", fontWeight:"700", fontSize:11 }}>On Shift</Text>
                     </View>
                   </View>
-                  <View style={{ backgroundColor:st.status==="On Shift"?"#dcfce7":"#fef3c7", borderRadius:20, paddingHorizontal:10, paddingVertical:4 }}>
-                    <Text style={{ color:st.status==="On Shift"?"#16a34a":"#92400e", fontWeight:"700", fontSize:11 }}>{st.status}</Text>
-                  </View>
-                </View>
-              ))}
+                ))
+              }
             </Card>
           </View>
         )}
@@ -1341,7 +1373,7 @@ function AdminApp({ user, onLogout, isDark, setIsDark, sharedOrders, setSharedOr
                   <View style={{ flexDirection:"row", justifyContent:"space-between", alignItems:"flex-start" }}>
                     <View style={{ flex:1 }}>
                       <Text style={{ fontWeight:"900", fontSize:13, color:T.text }}>
-                        {o.customer} — {o.items.map((it:any)=>it.name).join(", ")}
+                        {o.userName} — {o.items.map((it:any)=>it.name).join(", ")}
                       </Text>
                       <Text style={{ color:T.subtext, fontSize:11, marginTop:2 }}>
                         {o.id} · {o.type} · 📍 {getLocName(o,locations)} · {o.createdAt ? toCST(o.createdAt) : o.time}
@@ -1372,7 +1404,7 @@ function AdminApp({ user, onLogout, isDark, setIsDark, sharedOrders, setSharedOr
         {tab==="staff" && (
           <View>
             <Text style={[s.secTitle, { color:T.text }]}>👥 Staff</Text>
-            {STAFF_ROSTER.filter(st=>selLoc===0||st.loc===locations[selLoc-1]?.name).map((st,i)=>(
+            {locationStaff.filter(st=>selLoc===0||st.loc===locations[selLoc-1]?.name).map((st,i)=>(
               <Card key={i} style={{ flexDirection:"row", justifyContent:"space-between", alignItems:"center", padding:14, marginBottom:10 }} T={T}>
                 <View style={{ flexDirection:"row", alignItems:"center", gap:10 }}>
                   <View style={{ width:36, height:36, borderRadius:18, backgroundColor:T.surface2, alignItems:"center", justifyContent:"center" }}>
