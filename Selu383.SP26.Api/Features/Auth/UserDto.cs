@@ -6,4 +6,6 @@ public class UserDto
     public string UserName { get; set; } = string.Empty;
     public string[] Roles { get; set; } = Array.Empty<string>();
     public int Points { get; set; }
+    public int? LocationId { get; set; }
+    public string? Name { get; set; }
 }
