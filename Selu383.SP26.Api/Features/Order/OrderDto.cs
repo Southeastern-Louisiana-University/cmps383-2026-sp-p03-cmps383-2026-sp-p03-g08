@@ -10,6 +10,7 @@ public class OrderDto
     public DateTime CreatedAt { get; set; }
     public decimal Total { get; set; }
     public string Status { get; set; } = string.Empty;
+    public string Type { get; set; } = "dine-in";
     public List<OrderItemDto> Items { get; set; } = new();
 }
 
@@ -22,6 +23,7 @@ public class OrderItemDto
 public class CreateOrderDto
 {
     public int LocationId { get; set; }
+    public string Type { get; set; } = "dine-in";
     public List<OrderItemDto> Items { get; set; } = new();
     public decimal Total { get; set; }
 }

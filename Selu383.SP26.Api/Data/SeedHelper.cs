@@ -33,20 +33,57 @@ public static class SeedHelper
         if (!guestResult.Succeeded) throw new Exception(string.Join(", ", guestResult.Errors.Select(e => e.Description)));
         await userManager.AddToRoleAsync(guest, RoleNames.User);
 
-        var staff = new User { UserName = "staff@lions.com", Email = "staff@lions.com" };
+        /*var staff = new User { UserName = "staff@lions.com", Email = "staff@lions.com" };
         var staffResult = await userManager.CreateAsync(staff, defaultPassword);
         if (!staffResult.Succeeded) throw new Exception(string.Join(", ", staffResult.Errors.Select(e => e.Description)));
         await userManager.AddToRoleAsync(staff, RoleNames.Staff);
+        staff.LocationId = 1; // Hammond
+        await userManager.UpdateAsync(staff);*/
 
         var admin = new User { UserName = "admin@lions.com", Email = "admin@lions.com" };
         var adminResult = await userManager.CreateAsync(admin, defaultPassword);
         if (!adminResult.Succeeded) throw new Exception(string.Join(", ", adminResult.Errors.Select(e => e.Description)));
         await userManager.AddToRoleAsync(admin, RoleNames.Admin);
 
-        var manager = new User { UserName = "manager@lions.com", Email = "manager@lions.com" };
+        /*var manager = new User { UserName = "manager@lions.com", Email = "manager@lions.com" };
         var managerResult = await userManager.CreateAsync(manager, defaultPassword);
         if (!managerResult.Succeeded) throw new Exception(string.Join(", ", managerResult.Errors.Select(e => e.Description)));
         await userManager.AddToRoleAsync(manager, RoleNames.Manager);
+        await userManager.AddToRoleAsync(manager, RoleNames.Manager);
+        manager.LocationId = 1; // Hammond
+        await userManager.UpdateAsync(manager);*/
+
+        // Staff accounts per location
+        var staff1 = new User { UserName = "staff.hammond@lions.com", Email = "staff.hammond@lions.com", LocationId = 1, Name = "Sara L."};
+        var staff1Result = await userManager.CreateAsync(staff1, defaultPassword);
+        if (!staff1Result.Succeeded) throw new Exception(string.Join(", ", staff1Result.Errors.Select(e => e.Description)));
+        await userManager.AddToRoleAsync(staff1, RoleNames.Staff);
+
+        var staff2 = new User { UserName = "staff.newyork@lions.com", Email = "staff.newyork@lions.com", LocationId = 2, Name = "Danny B." };
+        var staff2Result = await userManager.CreateAsync(staff2, defaultPassword);
+        if (!staff2Result.Succeeded) throw new Exception(string.Join(", ", staff2Result.Errors.Select(e => e.Description)));
+        await userManager.AddToRoleAsync(staff2, RoleNames.Staff);
+
+        var staff3 = new User { UserName = "staff.neworleans@lions.com", Email = "staff.neworleans@lions.com", LocationId = 3, Name = "Preston G." };
+        var staff3Result = await userManager.CreateAsync(staff3, defaultPassword);
+        if (!staff3Result.Succeeded) throw new Exception(string.Join(", ", staff3Result.Errors.Select(e => e.Description)));
+        await userManager.AddToRoleAsync(staff3, RoleNames.Staff);
+
+        // Manager accounts per location
+        var manager1 = new User { UserName = "manager.hammond@lions.com", Email = "manager.hammond@lions.com", LocationId = 1, Name = "Doris B." };
+        var manager1Result = await userManager.CreateAsync(manager1, defaultPassword);
+        if (!manager1Result.Succeeded) throw new Exception(string.Join(", ", manager1Result.Errors.Select(e => e.Description)));
+        await userManager.AddToRoleAsync(manager1, RoleNames.Manager);
+
+        var manager2 = new User { UserName = "manager.newyork@lions.com", Email = "manager.newyork@lions.com", LocationId = 2, Name = "Nicole J." };
+        var manager2Result = await userManager.CreateAsync(manager2, defaultPassword);
+        if (!manager2Result.Succeeded) throw new Exception(string.Join(", ", manager2Result.Errors.Select(e => e.Description)));
+        await userManager.AddToRoleAsync(manager2, RoleNames.Manager);
+
+        var manager3 = new User { UserName = "manager.neworleans@lions.com", Email = "manager.neworleans@lions.com", LocationId = 3, Name = "Gerald D." };
+        var manager3Result = await userManager.CreateAsync(manager3, defaultPassword);
+        if (!manager3Result.Succeeded) throw new Exception(string.Join(", ", manager3Result.Errors.Select(e => e.Description)));
+        await userManager.AddToRoleAsync(manager3, RoleNames.Manager);
     }
 
     private static async Task AddRoles(IServiceProvider serviceProvider)

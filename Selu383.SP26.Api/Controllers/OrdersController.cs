@@ -36,6 +36,7 @@ public class OrdersController : ControllerBase
             UserId = user.Id,
             LocationId = dto.LocationId,
             Total = dto.Total,
+            Type = dto.Type,
             Items = dto.Items.Select(i => new OrderItem { Name = i.Name, Price = i.Price }).ToList()
         };
 
@@ -77,6 +78,7 @@ public class OrdersController : ControllerBase
                 CreatedAt = o.CreatedAt,
                 Total = o.Total,
                 Status = o.Status,
+                Type = o.Type,
                 Items = o.Items.Select(i => new OrderItemDto { Name = i.Name, Price = i.Price }).ToList()
             })
             .ToListAsync();
@@ -85,12 +87,34 @@ public class OrdersController : ControllerBase
     }
 
     [HttpGet]
-    [Authorize(Roles = "Staff,Admin")]
-    public async Task<ActionResult<List<OrderDto>>> GetAllOrders()
+    [Authorize(Roles = "Staff,Admin,Manager")]
+    public async Task<ActionResult<List<OrderDto>>> GetAllOrders([FromQuery] DateTime? date)
     {
-        var orders = await dbContext.Orders
+        var currentUser = await userManager.FindByNameAsync(User.Identity!.Name!);
+        if (currentUser == null) return Unauthorized();
+
+        var roles = await userManager.GetRolesAsync(currentUser);
+        var isAdmin = roles.Contains(RoleNames.Admin);
+
+        var query = dbContext.Orders
             .Include(o => o.Items)
             .OrderByDescending(o => o.CreatedAt)
+            .AsQueryable();
+
+        // Staff and manager only see orders for their location
+        if (!isAdmin && currentUser.LocationId.HasValue)
+        {
+            query = query.Where(o => o.LocationId == currentUser.LocationId.Value);
+        }
+
+        if (date.HasValue)
+        {
+            var start = date.Value.Date;
+            var end = start.AddDays(1);
+            query = query.Where(o => o.CreatedAt >= start && o.CreatedAt < end);
+        }
+
+        var orders = await query
             .Select(o => new OrderDto
             {
                 Id = o.Id,
@@ -101,12 +125,13 @@ public class OrdersController : ControllerBase
                 CreatedAt = o.CreatedAt,
                 Total = o.Total,
                 Status = o.Status,
+                Type = o.Type,
                 Items = o.Items.Select(i => new OrderItemDto { Name = i.Name, Price = i.Price }).ToList()
             })
             .ToListAsync();
 
         return Ok(orders);
-    }
+        }
 
     [HttpPut("{id}/status")]
     [Authorize(Roles = "Staff,Admin")]
@@ -134,6 +159,7 @@ public class OrdersController : ControllerBase
                 CreatedAt = o.CreatedAt,
                 Total = o.Total,
                 Status = o.Status,
+                Type = o.Type,
                 Items = o.Items.Select(i => new OrderItemDto { Name = i.Name, Price = i.Price }).ToList()
             })
             .FirstAsync();
