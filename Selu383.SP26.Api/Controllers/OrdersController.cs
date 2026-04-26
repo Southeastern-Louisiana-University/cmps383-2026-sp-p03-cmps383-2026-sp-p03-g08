@@ -22,18 +22,22 @@ public class OrdersController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize]
+    [AllowAnonymous]
     public async Task<ActionResult<OrderDto>> CreateOrder(CreateOrderDto dto)
     {
-        var user = await userManager.FindByNameAsync(User.Identity!.Name!);
-        if (user == null) return Unauthorized();
-
         var location = await dbContext.Locations.FindAsync(dto.LocationId);
         if (location == null) return BadRequest("Invalid location.");
 
+        // Get user if logged in, null if guest
+        User? user = null;
+        if (!dto.IsGuest && User.Identity?.IsAuthenticated == true)
+        {
+            user = await userManager.FindByNameAsync(User.Identity.Name!);
+        }
+
         var order = new Order
         {
-            UserId = user.Id,
+            UserId = user?.Id ?? 0,
             LocationId = dto.LocationId,
             Total = dto.Total,
             Type = dto.Type,
@@ -42,15 +46,19 @@ public class OrdersController : ControllerBase
 
         dbContext.Orders.Add(order);
 
-        var userPoints = await dbContext.UserPoints.FirstOrDefaultAsync(x => x.UserId == user.Id);
-        if (userPoints == null)
+        // Only award points to logged-in users
+        if (user != null)
         {
-            userPoints = new UserPoints { UserId = user.Id, Points = (int)(dto.Total * 10) };
-            dbContext.UserPoints.Add(userPoints);
-        }
-        else
-        {
-            userPoints.Points += (int)(dto.Total * 10);
+            var userPoints = await dbContext.UserPoints.FirstOrDefaultAsync(x => x.UserId == user.Id);
+            if (userPoints == null)
+            {
+                userPoints = new UserPoints { UserId = user.Id, Points = (int)(dto.Total * 10) };
+                dbContext.UserPoints.Add(userPoints);
+            }
+            else
+            {
+                userPoints.Points += (int)(dto.Total * 10);
+            }
         }
 
         await dbContext.SaveChangesAsync();
@@ -119,7 +127,7 @@ public class OrdersController : ControllerBase
             {
                 Id = o.Id,
                 UserId = o.UserId,
-                UserName = dbContext.Users.Where(u => u.Id == o.UserId).Select(u => u.UserName).FirstOrDefault() ?? "",
+                UserName = o.UserId == 0 ? "Guest" : dbContext.Users.Where(u => u.Id == o.UserId).Select(u => u.UserName).FirstOrDefault() ?? "Guest",
                 LocationId = o.LocationId,
                 LocationName = dbContext.Locations.Where(l => l.Id == o.LocationId).Select(l => l.Name).FirstOrDefault() ?? "",
                 CreatedAt = o.CreatedAt,

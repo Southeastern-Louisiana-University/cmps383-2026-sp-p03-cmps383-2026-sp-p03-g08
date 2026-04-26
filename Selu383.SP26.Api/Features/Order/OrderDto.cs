@@ -26,4 +26,5 @@ public class CreateOrderDto
     public string Type { get; set; } = "dine-in";
     public List<OrderItemDto> Items { get; set; } = new();
     public decimal Total { get; set; }
+    public bool IsGuest { get; set; } = false;
 }

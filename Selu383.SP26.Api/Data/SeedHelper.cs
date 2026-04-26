@@ -111,9 +111,9 @@ public static class SeedHelper
         }
 
         dataContext.Set<Location>().AddRange(
-            new Location { Name = "Caffeinated Lions Downtown",  Address = "123 Main St, Hammond, LA 70401",    TableCount = 10 },
-            new Location { Name = "Caffeinated Lions Northside", Address = "456 Oak Ave, Hammond, LA 70403",    TableCount = 12 },
-            new Location { Name = "Caffeinated Lions Lakefront", Address = "789 Lake Shore Dr, Mandeville, LA 70448", TableCount = 15 }
+            new Location { Name = "Hammond",  Address = "123 Main St, Hammond, LA 70401",    TableCount = 10 },
+            new Location { Name = "New York", Address = "456 Oak Ave, Hammond, LA 70403",    TableCount = 12 },
+            new Location { Name = "New Orleans", Address = "789 Lake Shore Dr, Mandeville, LA 70448", TableCount = 15 }
         );
 
         await dataContext.SaveChangesAsync();

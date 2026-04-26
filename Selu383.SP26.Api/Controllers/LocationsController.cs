@@ -124,4 +124,16 @@ public class LocationsController(DataContext dataContext) : ControllerBase
 
         return Ok();
     }
+
+    [HttpPost("fix-names")]
+    [Authorize(Roles = "Admin")]
+    public async Task<ActionResult> FixNames()
+    {
+        var locs = await dataContext.Set<Location>().ToListAsync();
+        var nameMap = new Dictionary<int, string> { {1,"Hammond"}, {2,"New York"}, {3,"New Orleans"} };
+        foreach (var loc in locs)
+            if (nameMap.ContainsKey(loc.Id)) loc.Name = nameMap[loc.Id];
+        await dataContext.SaveChangesAsync();
+        return Ok("Done");
+    }
 }
