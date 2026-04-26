@@ -663,18 +663,6 @@ function Login({ onLogin, setPage, mode }:any) {
         <div style={{ textAlign:"center", marginTop:10 }}>
           <span onClick={()=>setPage("menu")} style={{ color:T.subtext, fontSize:12, cursor:"pointer" }}>Continue as Guest</span>
         </div>
-        <div style={{ marginTop:18, borderTop:`1px solid ${T.border}`, paddingTop:14 }}>
-          <div style={{ background:T.isDark?"#1a1500":"#fffbeb", border:`1px solid ${accent}40`, borderRadius:8, padding:"6px 10px", marginBottom:10, textAlign:"center" as const }}>
-            <span style={{ color:"#92400e", fontSize:11, fontWeight:700 }}>🧪 For Testing Only — Remove Before Launch</span>
-          </div>
-          {USERS.map(u=>(
-            <div key={u.id} onClick={()=>{setEmail(u.email);setPass(u.password);setErr("");}}
-              style={{ display:"flex", justifyContent:"space-between", alignItems:"center", background:T.surface2, borderRadius:7, padding:"8px 12px", marginBottom:6, cursor:"pointer", border:`1px solid ${T.border}` }}>
-              <span style={{ color:T.subtext, fontSize:11 }}>{u.email}</span>
-              <span style={{ background:ROLE_COLOR[u.role], color:"#fff", fontSize:9, fontWeight:800, padding:"2px 7px", borderRadius:20, textTransform:"uppercase" as const }}>{u.role}</span>
-            </div>
-          ))}
-        </div>
       </div>
     </div>
   );
