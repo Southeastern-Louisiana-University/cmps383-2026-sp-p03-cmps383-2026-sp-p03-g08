@@ -753,20 +753,33 @@ function GuestMenuPage({ setPage }:any) {
   const shown = filter==="Popular" ? [...MENU].sort((a,b)=>b.orders-a.orders) : MENU.filter(m=>m.cat===filter);
   const total = cart.reduce((s:number,i:any)=>s+i.price,0);
 
-  const handlePay = (payMethod: string) => {
-    const code    = "CL-" + Math.floor(1000+Math.random()*9000);
-    const locName = LOCATIONS.find(l=>l.id===selectedLoc)?.name ?? "Hammond";
-    const o = {
-      id: "#G" + Math.floor(1000+Math.random()*9000), code,
-      customer: "Guest", items: cart, total,
-      date: new Date().toLocaleDateString(), payMethod,
-      type: "dine-in", status: "Pending",
-      time: new Date().toLocaleTimeString(), location: locName, count: cart.length,
+  const handlePay = async (payMethod: string) => {
+      const code    = "CL-" + Math.floor(1000+Math.random()*9000);
+      const locName = LOCATIONS.find(l=>l.id===selectedLoc)?.name ?? "Hammond";
+      try {
+        await fetch("/api/orders", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            locationId: selectedLoc,
+            type: "dine-in",
+            isGuest: true,
+            items: cart.map((i:any) => ({ name: i.name, price: i.price })),
+            total,
+          }),
+        });
+      } catch {}
+      const o = {
+        id: "#G" + Math.floor(1000+Math.random()*9000), code,
+        customer: "Guest", items: cart, total,
+        date: new Date().toLocaleDateString(), payMethod,
+        type: "dine-in", status: "Pending",
+        time: new Date().toLocaleTimeString(), location: locName, count: cart.length,
+      };
+      setShowPayment(false);
+      setReceipt({ ...o, payMethod });
+      setCart([]);
     };
-    setShowPayment(false);
-    setReceipt({ ...o, payMethod });
-    setCart([]);
-  };
 
   return (
     <div style={{ background:T.bg, minHeight:"100vh" }}>
@@ -880,6 +893,7 @@ function CustomerApp({ user, setUser, page, setPage, sharedOrders, setSharedOrde
         credentials: "include",
         body: JSON.stringify({
           locationId: selectedLoc,
+          type: isDriveThruCheckout ? "drive-thru" : "dine-in",
           items: cart.map(i => ({ name: i.name, price: i.price })),
           total,
         }),
@@ -1183,7 +1197,7 @@ function StaffApp({ user, page, setPage, sharedOrders, setSharedOrders }:any) {
                     <div>
                       <div style={{ fontWeight:900, fontSize:15, color:T.text }}>{o.userName}</div>
                       <div style={{ color:T.subtext, fontSize:12, marginTop:2 }}>{o.items.map((i:any)=>i.name).join(", ")}</div>
-                      <div style={{ color:T.subtext, fontSize:11, marginTop:4 }}>#{o.id} · 📍 {o.locationName} · ${o.total?.toFixed(2)} · {new Date(o.createdAt).toLocaleTimeString("en-US",{timeZone:"America/Chicago"})}</div>
+                      <div style={{ color:T.subtext, fontSize:11, marginTop:4 }}>#{o.id} · 📍 {o.locationName} · ${o.total?.toFixed(2)} · {new Date(o.createdAt + "Z").toLocaleTimeString("en-US",{timeZone:"America/Chicago"})}</div>
                     </div>
                     <div style={{ display:"flex", gap:8, alignItems:"center", flexWrap:"wrap" as const }}>
                       <span style={{ background:STATUS_COLOR[o.status], color:"#fff", fontSize:10, fontWeight:800, padding:"3px 10px", borderRadius:20 }}>{o.status}</span>
@@ -1383,7 +1397,7 @@ function AdminApp({ sharedOrders, setSharedOrders, page }:any) {
                   <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", flexWrap:"wrap" as const, gap:8 }}>
                     <div>
                       <div style={{ fontWeight:900, fontSize:13, color:T.text }}>{o.customer} — {o.items.map((it:any)=>it.name).join(", ")}</div>
-                      <div style={{ color:T.subtext, fontSize:11 }}>{o.id} · {o.type} · 📍 {o.location} · {o.time}</div>
+                      <div style={{ color:T.subtext, fontSize:11 }}>{o.id} · {o.type} · 📍 {o.location} · {o.id} · {o.type} · 📍 {o.location} · {o.createdAt ? new Date(o.createdAt).toLocaleTimeString("en-US",{timeZone:"America/Chicago"}) : o.time}</div>
                       {o.type==="drive-thru"&&<span style={{ background:accent, color:"#111", fontSize:10, fontWeight:800, padding:"1px 8px", borderRadius:20 }}>Code: {o.code}</span>}
                     </div>
                     <div style={{ display:"flex", gap:8, alignItems:"center" }}>
